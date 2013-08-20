@@ -1,0 +1,23 @@
+MVE v0.4
+Blake Shaw
+Columbia University
+
+Installation notes:
+
+Download and Install a SDP solver
+        - download CSDP (https://projects.coin-or.org/Csdp/)
+        - edit the csdp.m file so that the dos and system calls point to the full
+        path of the csdp executable e.g. info=system([csdp ' fname '.dat-s' ' '       
+        fname '.sol']); becomes info=system(['/Users/blake/bin/matlab/csdp ' 
+        fname '.dat-s' ' ' fname '.sol']);
+
+Download and install MVE
+        - downlad and unzip a copy of MVE
+        - edit the file setuppath.m to add the directory containing csdp to
+        matlab's path
+        - in matlab run mvedriver for an example of how to use mve
+
+* To use MVE-full
+    - note: MVE requires the YALMIP package
+	- download a copy of YALMIP (http://control.ee.ethz.ch/~joloef/wiki/pmwiki.php?n=Main.Download)
+	- edit the file setuppath.m so that YALMIP is in your path, and yalmip can access CSDP
