@@ -13,6 +13,11 @@ from colorlog import ColoredFormatter
 from pymongo import MongoClient
 from pprint import pprint
 
+RSS_URL = 'http://itunes.apple.com/rss/customerreviews/id={0}/json'
+REVIEWS_URL = 'http://itunes.apple.com/us/rss/customerreviews/page={0}/id={1}/sortby=mostrecent/json'
+MONGO_DB = 'app'
+MONGO_CONNECTION_STRING = 'mongodb://localhost/%s' % MONGO_DB
+
 def configure_logging():
 	FORMAT = '%(log_color)s %(levelname)-8s%(reset)s %(bold_blue)s%(message)s'
 	formatter = ColoredFormatter(
@@ -51,74 +56,81 @@ def configure_logging():
 	})
 	logging.getLogger('requests').setLevel(logging.WARNING)
 
-if __name__ == '__main__':
-	RSS_URL = 'http://itunes.apple.com/rss/customerreviews/id={0}/json'
-	REVIEWS_URL = 'http://itunes.apple.com/us/rss/customerreviews/page={0}/id={1}/sortby=mostrecent/json'
-	MONGO_DB = 'app'
-	MONGO_CONNECTION_STRING = 'mongodb://localhost/%s' % MONGO_DB
+def parse_feed(feed):
+	if 'feed' not in feed:
+		raise Exception('The feed seems to be messed up. Here\'s the raw JSON:\n%s ' % r.text)
+	return feed['feed']
 
+def extract_single_value(regex, data):
+	match = re.match(regex, data)
+	if match is None:
+		logger.warning('Unable to extract data using regex {0} for data {1}'.format(regex, data))
+		return None
+	return match.group(1)
+
+
+def extract_scrape_urls():
+	scrape_urls = []
+	probe_urls = []
+	if not os.path.exists('probe_urls.p'):
+		probe_urls = []
+		logging.info('Building list of probe URLs')
+		docs = db['app_data'].find({'reviews':{'$exists':0}}, timeout=False).sort('app_id', -1)
+		for doc in docs:
+			app_id = doc['app_id']
+			probe_urls.append(RSS_URL.format(app_id))
+		logging.info('Done. Got {0} URLs to probe'.format(len(probe_urls)))
+		pickle.dump(probe_urls, open('probe_urls.p', 'wb'))
+	else:
+		probe_urls = pickle.load(open('probe_urls.p', 'rb'))
+
+	if os.path.exists('scrape_urls.p'):
+		logging.info('Loading scrape URLs from file')
+		return pickle.load(open('scrape_urls.p', 'rb'))
+	else:
+		logging.info('Generating scrape URLs from {0} probe URLs'.format(len(probe_urls)))
+
+		def _extract_scrape_url(r, **kwargs):
+			app_id = int(extract_single_value('.*?/id=([0-9]+)/.*$', r.url))
+			if r.status_code != 200:
+				logging.warning('Status was {0}\n'.format(r.status_code))
+				return
+			feed = parse_feed(r.json())
+			page_url = [x for x in feed['link'] if x['attributes']['rel'] == 'last'][-1]['attributes']['href']
+			num_pages = 1
+			if len(page_url) > 0:
+				num_pages = int(extract_single_value('.*?/page=([0-9]+)/.*$', page_url))
+			reviews = []
+			for i in xrange(1, num_pages+1):
+				scrape_urls.append(REVIEWS_URL.format(i, app_id))
+
+		pool_size = 200
+		i = 0
+		while i < len(probe_urls):
+			logging.info('{0}%'.format(100*(i/len(probe_urls))))
+			rs = [grequests.get(probe_urls[j], callback=_extract_scrape_url) for j in xrange(i, i+pool_size)]
+			grequests.map(rs, size=pool_size)
+			i += pool_size
+
+		logging.info('Dumping scrape URLs to file'.format(len(scrape_urls)))
+		pickle.dump(scrape_urls, open('scrape_urls.p', 'wb'))
+		return scrape_urls
+
+
+if __name__ == '__main__':
 	gc.enable()
 	os.system('clear')
 	configure_logging()
 	mc = MongoClient(MONGO_CONNECTION_STRING)
 	db = mc[MONGO_DB]
 
-	def parse_feed(feed):
-		if 'feed' not in feed:
-			raise Exception('The feed seems to be messed up. Here\'s the raw JSON:\n%s ' % r.text)
-		return feed['feed']
-
-	def extract_single_value(regex, data):
-		match = re.match(regex, data)
-		if match is None:
-			logger.warning('Unable to extract data using regex {0} for data {1}'.format(regex, data))
-			return None
-		return match.group(1)
-
-	def extract_scrape_urls():
-		scrape_urls = []
-		probe_urls = []
-		if not os.path.exists('probe_urls.p'):
-			probe_urls = []
-			logging.info('Building list of probe URLs')
-			docs = db['app_data'].find({'reviews': {'$exists':0}}, timeout=False).sort('app_id', -1)
-			total = docs.count()
-			for doc in docs:
-				app_id = doc['app_id']
-				probe_urls.append(RSS_URL.format(app_id))
-			logging.info('Done. Got {0} URLs to probe'.format(len(probe_urls)))
-			pickle.dump(probe_urls, open('probe_urls.p', 'wb'))
-		else:
-			probe_urls = pickle.load(open('probe_urls.p', 'rb'))
-
-		if os.path.exists('scrape_urls.p'):
-			logging.info('Loading scrape URLs from file')
-			return pickle.load(open('scrape_urls.p', 'rb'))
-		else:
-			logging.info('Generating scrape URLs')
-			rs = (grequests.get(u) for u in probe_urls[:1000])
-			for r in grequests.map(rs, size=10):
-				app_id = int(extract_single_value('.*?/id=([0-9]+)/.*$', r.url))
-				if r.status_code != 200:
-					logging.warning('Status was {0}\n'.format(r.status_code))
-					continue
-				feed = parse_feed(r.json())
-				page_url = [x for x in feed['link'] if x['attributes']['rel'] == 'last'][-1]['attributes']['href']
-				num_pages = 1
-				if len(page_url) > 0:
-					num_pages = int(extract_single_value('.*?/page=([0-9]+)/.*$', page_url))
-				reviews = []
-				for i in xrange(1, num_pages+1):
-					scrape_urls.append(REVIEWS_URL.format(i, app_id))
-			logging.info('Dumping scrape URLs to file'.format(len(scrape_urls)))
-			pickle.dump(scrape_urls, open('scrape_urls.p', 'wb'))
-			return scrape_urls
-
 	scrape_urls = extract_scrape_urls()
 	logging.info('Got {0} URLs to scrape'.format(len(scrape_urls)))
 
+	exit()
+
 	rs = (grequests.get(u) for u in scrape_urls)
-	for r in grequests.map(rs, size=10):
+	for r in grequests.map(rs, size=50):
 		app_id = int(extract_single_value('.*?/id=([0-9]+)/.*$', r.url))
 		logging.info('Scraping appID {0}'.format(app_id))
 		if r.status_code != 200:
@@ -144,6 +156,7 @@ if __name__ == '__main__':
 				'content': raw_review['content']['label']
 			}
 			reviews.append(review)
+		gc.collect()
 		logging.info('----+ Updating database for appID {0}'.format(app_id))
 		db['app_data'].update({'app_id': app_id}, {'$set': {'reviews': reviews}}, w=1)
 		logging.info('----o Done')
