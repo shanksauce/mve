@@ -15,6 +15,10 @@ X_HOSTS = ['x{0}'.format(i) for i in xrange(0,6)]
 MONGOS_HOSTS = ['x{0}'.format(i) for i in xrange(3,6)]
 MONGOD_CONFIG_HOSTS = ['x{0}'.format(i) for i in xrange(0,3)]
 
+BEAT_HOST = 'x0'
+FLOWER_HOST = 'x0'
+WORKER_HOSTS = ['x{0}'.format(i) for i in xrange(1,6)]
+
 def configure_logging():
 	FORMAT = '%(log_color)s %(levelname)-8s%(reset)s %(bold_blue)s%(message)s'
 	formatter = ColoredFormatter(

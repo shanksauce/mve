@@ -153,22 +153,29 @@ def restart_mongod():
         stop()
         start()
 
+def restart_celery():
+    with settings(warn_only=True):
+        @hosts(config.BEAT_HOST)
+        def restart_celery_beat():
+            with cd('~/mve'):
+                run('source venv/bin/activate; nohup celery worker -E -B -A celerytasks >& /dev/null < /dev/null &', pty=False)
+        @hosts(config.FLOWER_HOST)
+        def restart_celery_flower():
+            with cd('~/mve'):
+                run('source venv/bin/activate; nohup celery flower >& /dev/null < /dev/null &', pty=False)
 
+        logging.info(yellow('Restarting celery beat...'))
+        execute(restart_celery_beat)
 
-'''
-@task
-def restart_cluster():
-    execute(restart_mongod)
-    execute(restart_mongod_config)
-    execute(restart_mongos)
-'''
-
-
-
+        logging.info(yellow('Restarting celery flower...'))
+        execute(restart_celery_flower)
 
 @hosts(config.X_HOSTS)
 def update_env():
-    logging.info('Setting up environment...')
+    logging.info(green('Setting up environment...'))
     with settings(warn_only=True):
         with cd('~/mve'):
             run('git pull origin master; source venv/bin/activate; pip install -r etc/pip.requirements')
+
+
+

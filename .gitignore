@@ -3,4 +3,5 @@ venv
 *.py[cod]
 *.json
 *.txt
+mongo/dump
 celerybeat-schedule.db
