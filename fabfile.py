@@ -157,12 +157,18 @@ def restart_celery():
     with settings(warn_only=True):
         @hosts(config.BEAT_HOST)
         def restart_celery_beat():
+            PIDFILE = '/var/run/celery.pid'
+            LOGFILE = '/var/log/celery'
+            if fabric.contrib.files.exists(PIDFILE):
+                run('kill -s 2 $(cat {0}) && rm {0}'.format(PIDFILE))
             with cd('~/mve'):
-                run('source venv/bin/activate; nohup celery worker -E -B -A celerytasks >& /dev/null < /dev/null &', pty=False)
+                run('source venv/bin/activate; nohup celery worker --pidfile={0} --logfile={1} -l INFO -E -B -A celerytasks >& /dev/null < /dev/null &'.format(PIDFILE, LOGFILE), pty=False)
         @hosts(config.FLOWER_HOST)
         def restart_celery_flower():
+            PIDFILE = '/var/run/celery-flower.pid'
+            LOGFILE = '/var/log/celery-flower'
             with cd('~/mve'):
-                run('source venv/bin/activate; nohup celery flower >& /dev/null < /dev/null &', pty=False)
+                run('source venv/bin/activate; nohup celery flower --pidfile={0} --logfile={1} >& /dev/null < /dev/null &'.format(PIDFILE, LOGFILE), pty=False)
 
         logging.info(yellow('Restarting celery beat...'))
         execute(restart_celery_beat)

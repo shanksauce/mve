@@ -12,3 +12,4 @@ config.configure_logging()
 @celery.task(name='noop')
 def noop():
     logging.info('NOOP')
+    return 'NOOP'

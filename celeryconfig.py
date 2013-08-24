@@ -1,8 +1,6 @@
 from celery.schedules import crontab
 import config
 
-CELERYD_LOG_FILE = '/var/log/celery'
-CELERYD_PID_FILE = '/var/run/celery.pid'
 CELERYD_CONCURRENCY = 2
 CELERY_TIMEZONE = 'UTC'
 CELERY_ENABLE_UTC = True
