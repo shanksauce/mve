@@ -10,7 +10,6 @@ import logging
 import logging.config
 import requests
 import grequests
-from colorlog import ColoredFormatter
 from pymongo import MongoClient
 from pprint import pprint
 
@@ -76,11 +75,14 @@ def extract_scrape_urls():
 
 
 if __name__ == '__main__':
+	RSS_URL = 'http://itunes.apple.com/rss/customerreviews/id={0}/json'
+	REVIEWS_URL = 'http://itunes.apple.com/us/rss/customerreviews/page={0}/id={1}/sortby=mostrecent/json'
+
 	gc.enable()
 	os.system('clear')
 	config.configure_logging()
-	mc = MongoClient(MONGO_CONNECTION_STRING)
-	db = mc[MONGO_DB]
+	mc = MongoClient(config.MONGO_CONNECTION_STRING)
+	db = mc[config.MONGO_DB]
 
 	scrape_urls = extract_scrape_urls()
 	logging.info('Got {0} URLs to scrape'.format(len(scrape_urls)))
