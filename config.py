@@ -12,6 +12,8 @@ REDIS_HOSTNAME = 'x0'
 REDIS_PORT = 6379
 
 X_HOSTS = ['x{0}'.format(i) for i in xrange(0,6)]
+MONGOS_HOSTS = ['x{0}'.format(i) for i in xrange(3,6)]
+MONGOD_CONFIG_HOSTS = ['x{0}'.format(i) for i in xrange(0,3)]
 
 def configure_logging():
 	FORMAT = '%(log_color)s %(levelname)-8s%(reset)s %(bold_blue)s%(message)s'
