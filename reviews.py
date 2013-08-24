@@ -1,77 +1,213 @@
 #!/usr/bin/env python
+import gc
 import re
 import os
 import sys
+import time
+import pickle
 import logging
+import logging.config
 import requests
+import grequests
+from colorlog import ColoredFormatter
 from pymongo import MongoClient
 from pprint import pprint
 
-os.system('clear')
-logging.basicConfig(format='[ %(levelname)s ] @ %(lineno)d: %(message)s', level=logging.INFO)
-logging.getLogger('requests').setLevel(logging.WARNING)
+def configure_logging():
+	FORMAT = '%(log_color)s %(levelname)-8s%(reset)s %(bold_blue)s%(message)s'
+	formatter = ColoredFormatter(
+	    FORMAT,
+	    datefmt = None,
+	    reset = True,
+	    log_colors = {
+	        'DEBUG': 'cyan',
+	        'INFO': 'green',
+	        'WARNING': 'yellow',
+	        'ERROR': 'red',
+	        'CRITICAL': 'red'
+	    }
+	)
 
-RSS_URL = 'http://itunes.apple.com/rss/customerreviews/id={0}/json'
-REVIEWS_URL = 'http://itunes.apple.com/us/rss/customerreviews/page={0}/id={1}/sortby=mostrecent/json'
-MONGO_DB = 'app'
-MONGO_CONNECTION_STRING = 'mongodb://localhost/%s' % MONGO_DB
+	logging.config.dictConfig({
+	    'version': 1,
+	    'formatters': {
+	        'colored': {
+	            '()': 'colorlog.ColoredFormatter',
+	            'format': FORMAT
+	        }
+	    },
+	    'handlers': {
+	        'console': {
+	            'class': 'logging.StreamHandler',
+	            'level': 'INFO',
+	            'formatter': 'colored',
+	            'stream': 'ext://sys.stdout'
+	        }
+	    },
+	    'root': {
+	        'level': 'INFO',
+	        'handlers': ['console']
+	    }
+	})
+	logging.getLogger('requests').setLevel(logging.WARNING)
 
-mc = MongoClient(MONGO_CONNECTION_STRING)
-db = mc[MONGO_DB]
+if __name__ == '__main__':
+	RSS_URL = 'http://itunes.apple.com/rss/customerreviews/id={0}/json'
+	REVIEWS_URL = 'http://itunes.apple.com/us/rss/customerreviews/page={0}/id={1}/sortby=mostrecent/json'
+	MONGO_DB = 'app'
+	MONGO_CONNECTION_STRING = 'mongodb://localhost/%s' % MONGO_DB
 
-def parse_feed(feed):
-	if 'feed' not in feed:
-		raise Exception('The feed seems to be messed up. Here\'s the raw JSON:\n%s ' % r.text)
-	return feed['feed']
+	gc.enable()
+	os.system('clear')
+	configure_logging()
+	mc = MongoClient(MONGO_CONNECTION_STRING)
+	db = mc[MONGO_DB]
 
-def extract_single_value(regex, data):
-	match = re.match(regex, data)
-	if match is None:
-		raise Exception('Unable to extract data using regex {0} for data {1}'.format(regex, data))
-	return match.group(1)
+	def parse_feed(feed):
+		if 'feed' not in feed:
+			raise Exception('The feed seems to be messed up. Here\'s the raw JSON:\n%s ' % r.text)
+		return feed['feed']
 
-try:
-	for doc in db['app_data'].find():
-		app_id = doc['app_id']
-		logging.info('Probing {0}'.format(RSS_URL.format(app_id)))
-		r = requests.get(RSS_URL.format(app_id))
-		feed = parse_feed(r.json())
-		page_url = [x for x in feed['link'] if x['attributes']['rel'] == 'last'][-1]['attributes']['href']
+	def extract_single_value(regex, data):
+		match = re.match(regex, data)
+		if match is None:
+			logger.warning('Unable to extract data using regex {0} for data {1}'.format(regex, data))
+			return None
+		return match.group(1)
 
-		if len(page_url) == 0:
+	def extract_scrape_urls():
+		scrape_urls = []
+		probe_urls = []
+		if not os.path.exists('probe_urls.p'):
+			probe_urls = []
+			logging.info('Building list of probe URLs')
+			docs = db['app_data'].find({'reviews': {'$exists':0}}, timeout=False).sort('app_id', -1)
+			total = docs.count()
+			for doc in docs:
+				app_id = doc['app_id']
+				probe_urls.append(RSS_URL.format(app_id))
+			logging.info('Done. Got {0} URLs to probe'.format(len(probe_urls)))
+			pickle.dump(probe_urls, open('probe_urls.p', 'wb'))
+		else:
+			probe_urls = pickle.load(open('probe_urls.p', 'rb'))
+
+		if os.path.exists('scrape_urls.p'):
+			logging.info('Loading scrape URLs from file')
+			return pickle.load(open('scrape_urls.p', 'rb'))
+		else:
+			logging.info('Generating scrape URLs')
+			rs = (grequests.get(u) for u in probe_urls[:1000])
+			for r in grequests.map(rs, size=10):
+				app_id = int(extract_single_value('.*?/id=([0-9]+)/.*$', r.url))
+				if r.status_code != 200:
+					logging.warning('Status was {0}\n'.format(r.status_code))
+					continue
+				feed = parse_feed(r.json())
+				page_url = [x for x in feed['link'] if x['attributes']['rel'] == 'last'][-1]['attributes']['href']
+				num_pages = 1
+				if len(page_url) > 0:
+					num_pages = int(extract_single_value('.*?/page=([0-9]+)/.*$', page_url))
+				reviews = []
+				for i in xrange(1, num_pages+1):
+					scrape_urls.append(REVIEWS_URL.format(i, app_id))
+			logging.info('Dumping scrape URLs to file'.format(len(scrape_urls)))
+			pickle.dump(scrape_urls, open('scrape_urls.p', 'wb'))
+			return scrape_urls
+
+	scrape_urls = extract_scrape_urls()
+	logging.info('Got {0} URLs to scrape'.format(len(scrape_urls)))
+
+	rs = (grequests.get(u) for u in scrape_urls)
+	for r in grequests.map(rs, size=10):
+		app_id = int(extract_single_value('.*?/id=([0-9]+)/.*$', r.url))
+		logging.info('Scraping appID {0}'.format(app_id))
+		if r.status_code != 200:
+			logging.warning('Status was {0}\n'.format(r.status_code))
 			continue
+		feed = parse_feed(r.json())
+		if 'entry' not in feed:
+			logging.warning('No reviews in feed\n')
+			continue
+		for raw_review in feed['entry']:
+			if 'rights' in raw_review:
+				continue
+			if 'im:version' not in raw_review:
+				raw_review['im:version'] = {'label': 'UNKNOWN'}
+			author_id = int(extract_single_value('.*?/id([0-9]+)', raw_review['author']['uri']['label']))
+			review = {
+				'id': int(raw_review['id']['label']),
+				'app_version_id': raw_review['im:version']['label'],
+				'author_id': author_id,
+				'author_name': raw_review['author']['name']['label'],
+				'rating': int(raw_review['im:rating']['label']),
+				'title': raw_review['title']['label'],
+				'content': raw_review['content']['label']
+			}
+			reviews.append(review)
+		logging.info('----+ Updating database for appID {0}'.format(app_id))
+		db['app_data'].update({'app_id': app_id}, {'$set': {'reviews': reviews}}, w=1)
+		logging.info('----o Done')
+		exit()
 
-		num_pages = int(extract_single_value('.*?/page=([0-9]+)/.*$', page_url))
-		logging.info('Got {0} pages'.format(num_pages))
-		reviews = []
-		for i in xrange(1, num_pages+1):
-			r = requests.get(REVIEWS_URL.format(i, app_id))
-			feed = parse_feed(r.json())
+	exit()
 
-			if 'entry' not in feed:
+
+	try:
+		docs = db['app_data'].find({'reviews': {'$exists':0}}, timeout=False).sort('app_id', -1)
+		total = docs.count()
+		ctr = -1
+		for doc in docs:
+			ctr += 1
+			logging.info('%i / %i' % (ctr, total))
+			app_id = doc['app_id']
+			logging.info('Probing {0}'.format(RSS_URL.format(app_id)))
+			r = requests.get(RSS_URL.format(app_id))
+
+			if r.status_code != 200:
+				logging.warning('Status was {0}\n'.format(r.status_code))
 				continue
 
-			for raw_review in feed['entry']:
-				if 'rights' in raw_review:
+			feed = parse_feed(r.json())
+			page_url = [x for x in feed['link'] if x['attributes']['rel'] == 'last'][-1]['attributes']['href']
+
+			num_pages = 1
+			if len(page_url) > 0:
+				num_pages = int(extract_single_value('.*?/page=([0-9]+)/.*$', page_url))
+
+			logging.info('Got {0} pages'.format(num_pages))
+			reviews = []
+			for i in xrange(1, num_pages+1):
+				logging.info('Scraping {0}'.format(REVIEWS_URL.format(i, app_id)))
+				r = requests.get(REVIEWS_URL.format(i, app_id))
+
+				if r.status_code != 200:
+					logging.warning('Status was {0}\n'.format(r.status_code))
 					continue
 
-				if 'im:version' not in raw_review:
-					raw_review['im:version'] = {'label': 'UNKNOWN'}
-
-				author_id = int(extract_single_value('.*?/id([0-9]+)', raw_review['author']['uri']['label']))
-				review = {
-					'id': int(raw_review['id']['label']),
-					'app_version_id': raw_review['im:version']['label'],
-					'author_id': author_id,
-					'author_name': raw_review['author']['name']['label'],
-					'rating': int(raw_review['im:rating']['label']),
-					'title': raw_review['title']['label'],
-					'content': raw_review['content']['label']
-				}
-				reviews.append(review)
-		doc['reviews'] = reviews
-		db['app_data'].save(doc, w=1)
-		logging.info('Saved\n')
-	logging.info('Done')
-except Exception as ex:
-	logging.error(ex)
+				feed = parse_feed(r.json())
+				if 'entry' not in feed:
+					logging.warning('No reviews in feed\n')
+					continue
+				for raw_review in feed['entry']:
+					if 'rights' in raw_review:
+						continue
+					if 'im:version' not in raw_review:
+						raw_review['im:version'] = {'label': 'UNKNOWN'}
+					author_id = int(extract_single_value('.*?/id([0-9]+)', raw_review['author']['uri']['label']))
+					review = {
+						'id': int(raw_review['id']['label']),
+						'app_version_id': raw_review['im:version']['label'],
+						'author_id': author_id,
+						'author_name': raw_review['author']['name']['label'],
+						'rating': int(raw_review['im:rating']['label']),
+						'title': raw_review['title']['label'],
+						'content': raw_review['content']['label']
+					}
+					reviews.append(review)
+			if len(reviews) > 0:
+				doc['reviews'] = reviews
+				db['app_data'].save(doc, w=1)
+				logging.info('Saved\n')
+		logging.info('Done')
+	except Exception as ex:
+		logging.error(ex)
