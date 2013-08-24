@@ -4,10 +4,14 @@ from colorlog import ColoredFormatter
 
 RSS_URL = 'http://itunes.apple.com/rss/customerreviews/id={0}/json'
 REVIEWS_URL = 'http://itunes.apple.com/us/rss/customerreviews/page={0}/id={1}/sortby=mostrecent/json'
+
 MONGO_DB = 'app'
 MONGO_CONNECTION_STRING = 'mongodb://localhost/%s' % MONGO_DB
-X_HOSTS = ['x{0}'.format(i) for i in xrange(0,6)]
 
+REDIS_HOSTNAME = 'x0'
+REDIS_PORT = 6379
+
+X_HOSTS = ['x{0}'.format(i) for i in xrange(0,6)]
 
 def configure_logging():
 	FORMAT = '%(log_color)s %(levelname)-8s%(reset)s %(bold_blue)s%(message)s'

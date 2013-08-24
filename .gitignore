@@ -3,3 +3,4 @@ venv
 *.py[cod]
 *.json
 *.txt
+celerybeat-schedule.db
