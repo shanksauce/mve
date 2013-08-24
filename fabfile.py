@@ -155,6 +155,16 @@ def restart_mongod():
 
 def restart_celery():
     with settings(warn_only=True):
+        @hosts(config.WORKER_HOSTS)
+        def restart_celery_workers():
+            PIDFILE = '/var/run/celery.pid'
+            LOGFILE = '/var/log/celery'
+            if fabric.contrib.files.exists(PIDFILE):
+                run('kill -s 2 $(cat {0}) && rm {0}'.format(PIDFILE))
+            with cd('~/mve'):
+                run('touch %s' % PIDFILE)
+                run('source venv/bin/activate; nohup celery worker --pidfile={0} --logfile={1} -l INFO -E -A celerytasks >& /dev/null < /dev/null &'.format(PIDFILE, LOGFILE), pty=False)
+
         @hosts(config.BEAT_HOST)
         def restart_celery_beat():
             PIDFILE = '/var/run/celery.pid'
@@ -162,12 +172,17 @@ def restart_celery():
             if fabric.contrib.files.exists(PIDFILE):
                 run('kill -s 2 $(cat {0}) && rm {0}'.format(PIDFILE))
             with cd('~/mve'):
+                run('touch %s' % PIDFILE)
                 run('source venv/bin/activate; nohup celery worker --pidfile={0} --logfile={1} -l INFO -E -B -A celerytasks >& /dev/null < /dev/null &'.format(PIDFILE, LOGFILE), pty=False)
+
         @hosts(config.FLOWER_HOST)
         def restart_celery_flower():
             PIDFILE = '/var/run/celery-flower.pid'
             LOGFILE = '/var/log/celery-flower'
+            if fabric.contrib.files.exists(PIDFILE):
+                run('kill -s 2 $(cat {0}) && rm {0}'.format(PIDFILE))
             with cd('~/mve'):
+                run('touch %s' % PIDFILE)
                 run('source venv/bin/activate; nohup celery flower --pidfile={0} --logfile={1} >& /dev/null < /dev/null &'.format(PIDFILE, LOGFILE), pty=False)
 
         logging.info(yellow('Restarting celery beat...'))
@@ -176,12 +191,15 @@ def restart_celery():
         logging.info(yellow('Restarting celery flower...'))
         execute(restart_celery_flower)
 
+        logging.info(yellow('Restarting celery workers...'))
+        execute(restart_celery_workers)
+
 @hosts(config.X_HOSTS)
 def update_env():
-    logging.info(green('Setting up environment...'))
+    logging.info(yellow('Updating environment...'))
     with settings(warn_only=True):
         with cd('~/mve'):
-            run('git pull origin master; source venv/bin/activate; pip install -r etc/pip.requirements')
+            run('git pull origin master; source venv/bin/activate; pip install -q -r etc/pip.requirements', pty=False)
 
 
 
