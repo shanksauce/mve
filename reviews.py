@@ -4,6 +4,7 @@ import re
 import os
 import sys
 import time
+import config
 import pickle
 import logging
 import logging.config
@@ -13,48 +14,6 @@ from colorlog import ColoredFormatter
 from pymongo import MongoClient
 from pprint import pprint
 
-RSS_URL = 'http://itunes.apple.com/rss/customerreviews/id={0}/json'
-REVIEWS_URL = 'http://itunes.apple.com/us/rss/customerreviews/page={0}/id={1}/sortby=mostrecent/json'
-MONGO_DB = 'app'
-MONGO_CONNECTION_STRING = 'mongodb://localhost/%s' % MONGO_DB
-
-def configure_logging():
-	FORMAT = '%(log_color)s %(levelname)-8s%(reset)s %(bold_blue)s%(message)s'
-	formatter = ColoredFormatter(
-	    FORMAT,
-	    datefmt = None,
-	    reset = True,
-	    log_colors = {
-	        'DEBUG': 'cyan',
-	        'INFO': 'green',
-	        'WARNING': 'yellow',
-	        'ERROR': 'red',
-	        'CRITICAL': 'red'
-	    }
-	)
-
-	logging.config.dictConfig({
-	    'version': 1,
-	    'formatters': {
-	        'colored': {
-	            '()': 'colorlog.ColoredFormatter',
-	            'format': FORMAT
-	        }
-	    },
-	    'handlers': {
-	        'console': {
-	            'class': 'logging.StreamHandler',
-	            'level': 'INFO',
-	            'formatter': 'colored',
-	            'stream': 'ext://sys.stdout'
-	        }
-	    },
-	    'root': {
-	        'level': 'INFO',
-	        'handlers': ['console']
-	    }
-	})
-	logging.getLogger('requests').setLevel(logging.WARNING)
 
 def parse_feed(feed):
 	if 'feed' not in feed:
@@ -67,7 +26,6 @@ def extract_single_value(regex, data):
 		logger.warning('Unable to extract data using regex {0} for data {1}'.format(regex, data))
 		return None
 	return match.group(1)
-
 
 def extract_scrape_urls():
 	scrape_urls = []
@@ -93,7 +51,7 @@ def extract_scrape_urls():
 		def _extract_scrape_url(r, **kwargs):
 			app_id = int(extract_single_value('.*?/id=([0-9]+)/.*$', r.url))
 			if r.status_code != 200:
-				logging.warning('Status was {0}\n'.format(r.status_code))
+				logging.warning('Status was {0} for appID {1}'.format(r.status_code, app_id))
 				return
 			feed = parse_feed(r.json())
 			page_url = [x for x in feed['link'] if x['attributes']['rel'] == 'last'][-1]['attributes']['href']
@@ -120,7 +78,7 @@ def extract_scrape_urls():
 if __name__ == '__main__':
 	gc.enable()
 	os.system('clear')
-	configure_logging()
+	config.configure_logging()
 	mc = MongoClient(MONGO_CONNECTION_STRING)
 	db = mc[MONGO_DB]
 
