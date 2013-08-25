@@ -1,7 +1,7 @@
 from celery.schedules import crontab
 import config
 
-CELERYD_CONCURRENCY = 2
+CELERYD_CONCURRENCY = 10
 CELERY_TIMEZONE = 'UTC'
 CELERY_ENABLE_UTC = True
 CELERY_TASK_SERIALIZER = 'json'
@@ -14,8 +14,13 @@ BROKER_URL = 'redis://'+config.REDIS_HOSTNAME+':'+str(config.REDIS_PORT)
 CELERY_RESULT_BACKEND = BROKER_URL+'/0'
 
 CELERYBEAT_SCHEDULE = {
-  'noop': {
-    'task': 'noop',
-    'schedule': crontab(minute='*/1')
-  }
+  	'noop': {
+    	'task': 'noop',
+    	'schedule': crontab(minute='*/60')
+ 	},
+
+	'generate_scrape_urls': {
+		'task': 'generate_scrape_urls',
+		'schedule': crontab(minute='*/1')
+	}
 }

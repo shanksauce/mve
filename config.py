@@ -2,10 +2,13 @@ import logging
 import logging.config
 from colorlog import ColoredFormatter
 
+RSS_URL = 'http://itunes.apple.com/rss/customerreviews/id={0}/json'
+REVIEWS_URL = 'http://itunes.apple.com/us/rss/customerreviews/page={0}/id={1}/sortby=mostrecent/json'
+
 MONGO_DB = 'app'
 MONGO_CONNECTION_STRING = 'mongodb://localhost/%s' % MONGO_DB
 
-REDIS_HOSTNAME = 'x0'
+REDIS_HOSTNAME = 'localhost'
 REDIS_PORT = 6379
 
 X_HOSTS = ['x{0}'.format(i) for i in xrange(0,6)]
