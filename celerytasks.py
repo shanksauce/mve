@@ -24,15 +24,13 @@ celery.config_from_object(celeryconfig)
 INCOMPLETE_TASKS = '__incomplete_tasks'
 COMPLETED_TASKS = '__completed_tasks'
 redis = Redis(config.REDIS_HOSTNAME)
-
 if redis.exists(INCOMPLETE_TASKS):
     redis.delete(INCOMPLETE_TASKS)
-
 if redis.exists(COMPLETED_TASKS):
     redis.delete(COMPLETED_TASKS)
 
 ## Set pool bounds
-pool_size = 25
+pool_size = 100
 for i in xrange(1, int(len(probe_urls)/pool_size)):
     redis.sadd(INCOMPLETE_TASKS, i)
 
