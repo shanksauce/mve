@@ -155,7 +155,6 @@ def restart_mongod():
         stop()
         start()
 
-
 @hosts(config.X_HOSTS)
 def kill_celery():
     PIDFILE = '/var/run/celery.pid'
@@ -164,7 +163,6 @@ def kill_celery():
         if fabric.contrib.files.exists(PIDFILE):
             run('kill -s 2 $(cat {0}) && rm {0}'.format(PIDFILE))
             run('killall celery'.format(PIDFILE))
-
 
 def restart_celery():
     with settings(warn_only=True):
@@ -200,10 +198,8 @@ def restart_celery():
 
         logging.info(yellow('Restarting celery beat...'))
         execute(restart_celery_beat)
-
         logging.info(yellow('Restarting celery flower...'))
         execute(restart_celery_flower)
-
         logging.info(yellow('Restarting celery workers...'))
         execute(restart_celery_workers)
 

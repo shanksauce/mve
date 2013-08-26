@@ -1,7 +1,7 @@
 from celery.schedules import crontab
 import config
 
-CELERYD_CONCURRENCY = 16
+CELERYD_CONCURRENCY = 4
 CELERY_TIMEZONE = 'UTC'
 CELERY_ENABLE_UTC = True
 CELERY_TASK_SERIALIZER = 'json'
@@ -16,6 +16,7 @@ CELERY_RESULT_BACKEND = BROKER_URL+'/0'
 CELERYBEAT_SCHEDULE = {
 	'push_scrape_tasks': {
 		'task': 'push_scrape_tasks',
+		'relative': True,
 		'schedule': crontab(minute='*/1')
 	}
 }
