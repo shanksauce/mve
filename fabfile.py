@@ -11,7 +11,7 @@ from fabric.decorators import hosts
 config.configure_logging()
 
 env.user = 'root'
-fabric.state.output['running'] = True
+fabric.state.output['running'] = False
 
 def help(method=None):
     '''
@@ -154,6 +154,16 @@ def restart_mongod():
             logging.info('')
         stop()
         start()
+
+
+@hosts(config.X_HOSTS)
+def kill_celery():
+    PIDFILE = '/var/run/celery.pid'
+    LOGFILE = '/var/log/celery'
+    with settings(warn_only=True):
+        if fabric.contrib.files.exists(PIDFILE):
+            run('kill -s 2 $(cat {0}) && rm {0}'.format(PIDFILE))
+
 
 def restart_celery():
     with settings(warn_only=True):

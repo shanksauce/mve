@@ -12,6 +12,14 @@ from celery.task.sets import TaskSet
 ## Logging output formatting
 config.configure_logging()
 
+## Load probe URLs
+logging.info('Loading list of probe URLs from file')
+probe_urls = pickle.load(open('probe_urls.p', 'rb'))
+
+## Celery
+celery = Celery('celerytasks')
+celery.config_from_object(celeryconfig)
+
 ## Redis
 INCOMPLETE_TASKS = '__incomplete_tasks'
 COMPLETED_TASKS = '__completed_tasks'
@@ -23,57 +31,60 @@ if redis.exists(INCOMPLETE_TASKS):
 if redis.exists(COMPLETED_TASKS):
     redis.delete(COMPLETED_TASKS)
 
-## Load probe URLs
-logging.info('Loading list of probe URLs from file')
-probe_urls = pickle.load(open('probe_urls.p', 'rb'))
-
-## Celery
-celery = Celery('celerytasks')
-celery.config_from_object(celeryconfig)
-
 ## Set pool bounds
-pool_size = 100
+pool_size = 25
 for i in xrange(1, int(len(probe_urls)/pool_size)):
     redis.sadd(INCOMPLETE_TASKS, i)
 
-scrape_urls = []
+def parse_feed(feed):
+    if 'feed' not in feed:
+        raise Exception('The feed seems to be messed up. Here\'s the raw JSON:\n%s ' % r.text)
+    return feed['feed']
+
+def extract_single_value(regex, data):
+    match = re.match(regex, data)
+    if match is None:
+        logging.warning('Unable to extract data using regex /{0}/ for data `{1}`'.format(regex, data))
+        return None
+    return match.group(1)
+
 @celery.task(name='get_scrape_url')
 def get_scrape_url(url):
-    global scrape_urls
-    def extract_scrape_url(r):
-        app_id = int(extract_single_value('.*?/id=([0-9]+)/.*$', r.url))
-        if r.status_code != 200:
-            logging.warning('Status was {0} for appID {1}'.format(r.status_code, app_id))
-            return
-        feed = parse_feed(r.json())
-        page_url = [x for x in feed['link'] if x['attributes']['rel'] == 'last'][-1]['attributes']['href']
-        num_pages = 1
-        if len(page_url) > 0:
-            num_pages = int(extract_single_value('.*?/page=([0-9]+)/.*$', page_url))
-        for i in xrange(1, num_pages+1):
-            scrape_urls.append(config.REVIEWS_URL.format(i, app_id))
+    scrape_urls = []
+    r = requests.get(url)
+    app_id = int(extract_single_value('.*?/id=([0-9]+)/.*$', r.url))
+    if r.status_code != 200:
+        logging.warning('Status was {0} for appID {1}'.format(r.status_code, app_id))
+        return
+    feed = parse_feed(r.json())
+    page_url = [x for x in feed['link'] if x['attributes']['rel'] == 'last'][-1]['attributes']['href']
+    num_pages = 1
+    if len(page_url) > 0:
+        num_pages = int(extract_single_value('.*?/page=([0-9]+)/.*$', page_url))
+    logging.info('Got {0} pages'.format(num_pages))
+    for i in xrange(1, num_pages+1):
+        scrape_urls.append(config.REVIEWS_URL.format(i, app_id))
+    return scrape_urls
 
-    logging.info('Getting: {0}'.format(url))
-    return 'OK'
-#    r = requests.get(probe_urls[k])
-#    extract_scrape_url(r)
-
-#	logging.info('Dumping scrape URLs to file'.format(len(scrape_urls)))
-#	pickle.dump(scrape_urls, open('scrape_urls.p', 'wb'))
-
-
+scrape_urls = []
 @celery.task(name='push_scrape_tasks')
 def push_scrape_tasks():
     global probe_urls, scrape_urls, pool_size
+    config.configure_logging()
     num_tasks = int(len(probe_urls)/pool_size)
     task_index = redis.spop(INCOMPLETE_TASKS)
-    if task_index is not None:
-        task_index = int(task_index)
+    if task_index is None:
+        if not os.path.exists('scrape_urls.p'):
+            logging.info('Dumping scrape URLs to file'.format(len(scrape_urls)))
+            pickle.dump(scrape_urls, open('scrape_urls.p', 'wb'))
+        return 'DONE'
+    task_index = int(task_index)
     j = task_index*pool_size
     i = j-pool_size
     logging.info('Getting scrape URLs from range {0} to {1}'.format(i,j))
-#    g = group(get_scrape_url.s(url) for url in probe_urls[i:j])()
-#    logging.info('Result: {0}'.format(g.get()))
+    g = group(get_scrape_url.s(url) for url in probe_urls[i:j])()
+    scrape_urls.extend(g.get())
+    logging.info('Now have {0} scrape URLs'.format(len(scrape_urls)))
 
 
 
