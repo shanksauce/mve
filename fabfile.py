@@ -11,7 +11,7 @@ from fabric.decorators import hosts
 config.configure_logging()
 
 env.user = 'root'
-fabric.state.output['running'] = False
+fabric.state.output['running'] = True
 
 def help(method=None):
     '''
@@ -83,11 +83,13 @@ def update_system():
     with settings(warn_only=True):
         run('slackpkg update')
 
-
-
 @hosts(config.X_HOSTS)
 def check_cluster():
     run('ps aux | grep mongo')
+
+@hosts(config.X_HOSTS)
+def check_celery():
+    run('ps aux | grep celery')
 
 @hosts(config.MONGOS_HOSTS)
 def restart_mongos():
