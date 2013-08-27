@@ -21,6 +21,7 @@ celery = Celery('celerytasks')
 celery.config_from_object(celeryconfig)
 
 ## Redis
+SCRAPE_URLS = '__scrape_urls'
 INCOMPLETE_TASKS = '__incomplete_tasks'
 COMPLETED_TASKS = '__completed_tasks'
 redis = Redis(config.REDIS_HOSTNAME)
@@ -28,6 +29,8 @@ if redis.exists(INCOMPLETE_TASKS):
     redis.delete(INCOMPLETE_TASKS)
 if redis.exists(COMPLETED_TASKS):
     redis.delete(COMPLETED_TASKS)
+if redis.exists(SCRAPE_URLS):
+    redis.delete(SCRAPE_URLS)
 
 ## Set pool bounds
 pool_size = 25
@@ -48,7 +51,6 @@ def extract_single_value(regex, data):
 
 @celery.task(name='get_scrape_url')
 def get_scrape_url(url):
-    global scrape_urls
     r = requests.get(url)
     app_id = int(extract_single_value('.*?/id=([0-9]+)/.*$', r.url))
     if r.status_code != 200:
@@ -61,20 +63,19 @@ def get_scrape_url(url):
         num_pages = int(extract_single_value('.*?/page=([0-9]+)/.*$', page_url))
     logging.info('Got {0} pages'.format(num_pages))
     for i in xrange(1, num_pages+1):
-        scrape_urls.append(config.REVIEWS_URL.format(i, app_id))
-    logging.info('Now have {0} scrape URLs'.format(len(scrape_urls)))
+        redis.sadd(SCRAPE_URLS, config.REVIEWS_URL.format(i, app_id))
+    logging.info('Now have {0} scrape URLs'.format(redis.scard(SCRAPE_URLS))
 
-scrape_urls = []
 @celery.task(name='push_scrape_tasks')
 def push_scrape_tasks(task_id=None):
-    global probe_urls, scrape_urls, pool_size
+    global probe_urls, pool_size
     config.configure_logging()
     num_tasks = int(len(probe_urls)/pool_size)
     task_index = redis.spop(INCOMPLETE_TASKS)
     if task_index is None:
         if not os.path.exists('scrape_urls.p'):
-            logging.info('Dumping scrape URLs to file'.format(len(scrape_urls)))
-            pickle.dump(scrape_urls, open('scrape_urls.p', 'wb'))
+            logging.info('Dumping scrape URLs to file'.format(redis.scard(SCRAPE_URLS))
+            pickle.dump(redis.smembers(SCRAPE_URLS), open('scrape_urls.p', 'wb'))
         return 'DONE'
     task_index = int(task_index)
     j = task_index*pool_size

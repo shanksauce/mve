@@ -162,7 +162,7 @@ def kill_celery():
     with settings(warn_only=True):
         if fabric.contrib.files.exists(PIDFILE):
             run('kill -s 2 $(cat {0}) && rm {0}'.format(PIDFILE))
-            run('killall celery'.format(PIDFILE))
+            run('killall celery')
 
 def restart_celery():
     with settings(warn_only=True):
