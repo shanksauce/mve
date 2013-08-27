@@ -68,7 +68,7 @@ def get_scrape_url(url):
     return result
 
 @task(name='push_scrape_tasks', ignore_result=True)
-def push_scrape_tasks(task_id=None):
+def push_scrape_tasks():
     global probe_urls, pool_size
     num_tasks = int(len(probe_urls)/pool_size)
     task_index = redis.spop(INCOMPLETE_TASKS)
@@ -83,4 +83,5 @@ def push_scrape_tasks(task_id=None):
     logging.info('Getting scrape URLs from range {0} to {1}'.format(i,j))
     g = chord(get_scrape_url.s(url) for url in probe_urls[i:j])(push_scrape_tasks.s())
 
+push_scrape_tasks.delay()
 
