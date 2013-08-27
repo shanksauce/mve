@@ -157,6 +157,11 @@ def restart_mongod():
         start()
 
 @hosts(config.X_HOSTS)
+def rm_scrape_urls():
+    with cd('~/mve'):
+        run('rm -f scrape_urls.')
+
+@hosts(config.X_HOSTS)
 def kill_celery():
     PIDFILE = '/var/run/celery.pid'
     LOGFILE = '/var/log/celery'

@@ -21,7 +21,7 @@ config.configure_logging()
 
 ## Load probe URLs
 logging.info('Loading list of probe URLs from file')
-probe_urls = [] #pickle.load(open('probe_urls.p', 'rb'))
+probe_urls = pickle.load(open('probe_urls.p', 'rb'))
 
 ## Redis
 SCRAPE_URLS = '__scrape_urls'
