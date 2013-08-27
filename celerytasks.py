@@ -30,7 +30,7 @@ if redis.exists(COMPLETED_TASKS):
     redis.delete(COMPLETED_TASKS)
 
 ## Set pool bounds
-pool_size = 200
+pool_size = 50
 for i in xrange(1, int(len(probe_urls)/pool_size)):
     redis.sadd(INCOMPLETE_TASKS, i)
 
