@@ -11,7 +11,7 @@ from fabric.decorators import hosts
 config.configure_logging()
 
 env.user = 'root'
-fabric.state.output['running'] = False
+#fabric.state.output['running'] = False
 
 def help(method=None):
     '''

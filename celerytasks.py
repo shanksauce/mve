@@ -64,17 +64,16 @@ def get_scrape_url(url):
     logging.info('Got {0} pages'.format(num_pages))
     for i in xrange(1, num_pages+1):
         redis.sadd(SCRAPE_URLS, config.REVIEWS_URL.format(i, app_id))
-    logging.info('Now have {0} scrape URLs'.format(redis.scard(SCRAPE_URLS))
+    logging.info('Now have {0} scrape URLs'.format(redis.scard(SCRAPE_URLS)))
 
 @celery.task(name='push_scrape_tasks')
 def push_scrape_tasks(task_id=None):
     global probe_urls, pool_size
-    config.configure_logging()
     num_tasks = int(len(probe_urls)/pool_size)
     task_index = redis.spop(INCOMPLETE_TASKS)
     if task_index is None:
         if not os.path.exists('scrape_urls.p'):
-            logging.info('Dumping scrape URLs to file'.format(redis.scard(SCRAPE_URLS))
+            logging.info('Dumping scrape URLs to file'.format(redis.scard(SCRAPE_URLS)))
             pickle.dump(redis.smembers(SCRAPE_URLS), open('scrape_urls.p', 'wb'))
         return 'DONE'
     task_index = int(task_index)
