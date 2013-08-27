@@ -8,9 +8,6 @@ import logging
 import time
 from redis import Redis
 from celery import Celery, chain, group, chord, current_task, states, task
-from celery.task.sets import TaskSet
-from celery.execute import send_task
-
 
 ## Celery
 celery = Celery('celerytasks')
@@ -68,7 +65,7 @@ def get_scrape_url(url):
     return result
 
 @task(name='push_scrape_tasks', ignore_result=True)
-def push_scrape_tasks():
+def push_scrape_tasks(task_id=None):
     global probe_urls, pool_size
     num_tasks = int(len(probe_urls)/pool_size)
     task_index = redis.spop(INCOMPLETE_TASKS)
