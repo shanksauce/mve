@@ -50,6 +50,7 @@ def extract_single_value(regex, data):
 def get_scrape_url(url):
     r = requests.get(url)
     app_id = int(extract_single_value('.*?/id=([0-9]+)/.*$', r.url))
+    result = {'app_id': app_id, 'status': r.status_code}
     if r.status_code != 200:
         logging.warning('Status was {0} for appID {1}'.format(r.status_code, app_id))
     else:
