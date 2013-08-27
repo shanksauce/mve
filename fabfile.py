@@ -33,7 +33,7 @@ def help(method=None):
 def ls():
     with settings(hide('stderr'), warn_only=True):
         with cd('~/mve'):
-            run('ls -la')
+            run('ls -la *.p')
 
 @hosts(config.X_HOSTS)
 def install_libevent():
