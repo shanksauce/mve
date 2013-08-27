@@ -17,6 +17,6 @@ CELERYBEAT_SCHEDULE = {
 	'push_scrape_tasks': {
 		'task': 'push_scrape_tasks',
 		'relative': True,
-		'schedule': crontab(minute='*/1')
+		'schedule': crontab(minute='*/30')
 	}
 }

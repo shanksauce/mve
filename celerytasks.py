@@ -53,9 +53,10 @@ def extract_single_value(regex, data):
 def get_scrape_url(url):
     r = requests.get(url)
     app_id = int(extract_single_value('.*?/id=([0-9]+)/.*$', r.url))
+    result = {'app_id': app_id, 'status': r.status_code}
     if r.status_code != 200:
         logging.warning('Status was {0} for appID {1}'.format(r.status_code, app_id))
-        return
+        return result
     feed = parse_feed(r.json())
     page_url = [x for x in feed['link'] if x['attributes']['rel'] == 'last'][-1]['attributes']['href']
     num_pages = 1
@@ -65,6 +66,7 @@ def get_scrape_url(url):
     for i in xrange(1, num_pages+1):
         redis.sadd(SCRAPE_URLS, config.REVIEWS_URL.format(i, app_id))
     logging.info('Now have {0} scrape URLs'.format(redis.scard(SCRAPE_URLS)))
+    return result
 
 @celery.task(name='push_scrape_tasks')
 def push_scrape_tasks(task_id=None):
@@ -83,5 +85,5 @@ def push_scrape_tasks(task_id=None):
     logging.info('Getting scrape URLs from range {0} to {1}'.format(i,j))
     g = chord(get_scrape_url.s(url) for url in probe_urls[i:j])(push_scrape_tasks.s())
 
-
+push_scrape_tasks()
 
