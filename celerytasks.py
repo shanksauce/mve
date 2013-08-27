@@ -48,7 +48,7 @@ def extract_single_value(regex, data):
 
 @celery.task(name='get_scrape_url')
 def get_scrape_url(url):
-    scrape_urls = []
+    global scrape_urls
     r = requests.get(url)
     app_id = int(extract_single_value('.*?/id=([0-9]+)/.*$', r.url))
     if r.status_code != 200:
@@ -63,7 +63,6 @@ def get_scrape_url(url):
     for i in xrange(1, num_pages+1):
         scrape_urls.append(config.REVIEWS_URL.format(i, app_id))
     logging.info('Now have {0} scrape URLs'.format(len(scrape_urls)))
-    return scrape_urls
 
 scrape_urls = []
 @celery.task(name='push_scrape_tasks')
