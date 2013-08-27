@@ -50,20 +50,20 @@ def extract_single_value(regex, data):
 def get_scrape_url(url):
     r = requests.get(url)
     app_id = int(extract_single_value('.*?/id=([0-9]+)/.*$', r.url))
-    result = {'app_id': app_id, 'status': r.status_code}
+    num_pages = 1
     if r.status_code != 200:
         logging.warning('Status was {0} for appID {1}'.format(r.status_code, app_id))
+        redis.sadd(SCRAPE_URLS, {'app_id': app_id, 'num_pages': 1})
     else:
         feed = parse_feed(r.json())
         page_url = [x for x in feed['link'] if x['attributes']['rel'] == 'last'][-1]['attributes']['href']
-        num_pages = 1
         if len(page_url) > 0:
             num_pages = int(extract_single_value('.*?/page=([0-9]+)/.*$', page_url))
         logging.info('Got {0} pages'.format(num_pages))
         for i in xrange(1, num_pages+1):
-            redis.sadd(SCRAPE_URLS, config.REVIEWS_URL.format(i, app_id))
+            redis.sadd(SCRAPE_URLS, {'app_id': app_id, 'num_pages': 1})
         logging.info('Now have {0} scrape URLs'.format(redis.scard(SCRAPE_URLS)))
-    return result
+    return {'app_id': app_id, 'status': r.status_code, 'num_pages': num_pages}
 
 @task(name='push_scrape_tasks', ignore_result=True)
 def push_scrape_tasks(task_id=None):
