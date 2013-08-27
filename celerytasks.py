@@ -6,7 +6,7 @@ import celeryconfig
 import logging
 import time
 from redis import Redis
-from celery import Celery, chain, group
+from celery import Celery, chain, group, chord
 from celery.task.sets import TaskSet
 
 ## Logging output formatting
@@ -62,11 +62,12 @@ def get_scrape_url(url):
     logging.info('Got {0} pages'.format(num_pages))
     for i in xrange(1, num_pages+1):
         scrape_urls.append(config.REVIEWS_URL.format(i, app_id))
+    logging.info('Now have {0} scrape URLs'.format(len(scrape_urls)))
     return scrape_urls
 
 scrape_urls = []
 @celery.task(name='push_scrape_tasks')
-def push_scrape_tasks():
+def push_scrape_tasks(task_id=None):
     global probe_urls, scrape_urls, pool_size
     config.configure_logging()
     num_tasks = int(len(probe_urls)/pool_size)
@@ -79,11 +80,9 @@ def push_scrape_tasks():
     task_index = int(task_index)
     j = task_index*pool_size
     i = j-pool_size
+
     logging.info('Getting scrape URLs from range {0} to {1}'.format(i,j))
-    g = group(get_scrape_url.s(url) for url in probe_urls[i:j])()
-    scrape_urls.extend(g.get())
-    logging.info('Now have {0} scrape URLs'.format(len(scrape_urls)))
-    return 'Now have {0} scrape URLs'.format(len(scrape_urls))
+    g = chord(get_scrape_url.s(url) for url in probe_urls[i:j])(push_scrape_tasks.s())
 
 
 
