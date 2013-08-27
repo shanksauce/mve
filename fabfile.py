@@ -1,6 +1,7 @@
 from __future__ import with_statement
 import sys
 import json
+import time
 import config
 import logging
 import fabric.state
@@ -172,6 +173,7 @@ def restart_celery():
             LOGFILE = '/var/log/celery'
             if fabric.contrib.files.exists(PIDFILE):
                 run('kill -s 2 $(cat {0}) && rm {0}'.format(PIDFILE))
+            time.sleep(10)
             with cd('~/mve'):
                 run('touch %s' % PIDFILE)
                 run('source venv/bin/activate; nohup celery worker --pidfile={0} --logfile={1} -l INFO -E -A celerytasks >& /dev/null < /dev/null &'.format(PIDFILE, LOGFILE), pty=False)
@@ -182,6 +184,7 @@ def restart_celery():
             LOGFILE = '/var/log/celery'
             if fabric.contrib.files.exists(PIDFILE):
                 run('kill -s 2 $(cat {0}) && rm {0}'.format(PIDFILE))
+            time.sleep(10)
             with cd('~/mve'):
                 run('touch %s' % PIDFILE)
                 run('source venv/bin/activate; nohup celery worker --pidfile={0} --logfile={1} -l INFO -E -B -A celerytasks >& /dev/null < /dev/null &'.format(PIDFILE, LOGFILE), pty=False)
@@ -192,6 +195,7 @@ def restart_celery():
             LOGFILE = '/var/log/celery-flower'
             if fabric.contrib.files.exists(PIDFILE):
                 run('kill -s 2 $(cat {0}) && rm {0}'.format(PIDFILE))
+            time.sleep(10)
             with cd('~/mve'):
                 run('touch %s' % PIDFILE)
                 run('source venv/bin/activate; nohup celery flower --pidfile={0} --logfile={1} >& /dev/null < /dev/null &'.format(PIDFILE, LOGFILE), pty=False)
