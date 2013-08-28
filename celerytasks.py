@@ -53,11 +53,17 @@ pool_size = 10
 @task(name='scrape_review')
 def scrape_review(app_id, *args, **kwargs):
     def get_feed(page_num, app_id):
+        time.sleep(1)
         r = requests.get(config.REVIEWS_URL.format(page_num, app_id))
-        if r.content is not None:
-            return etree.fromstring(r.content)
-        else:
+        if r.status_code != 200:
+            logging.warning('************ Status code was: {0}'.format(r.status_code))
             return None
+        else:
+            if r.content is None:
+                logging.warning('************ No response text: {0}'.format(r.text))
+                return None
+            else:
+                return etree.fromstring(r.content)
 
     def extract_single_value(regex, data):
         match = re.match(regex, data)
@@ -100,7 +106,8 @@ def scrape_review(app_id, *args, **kwargs):
         for i in xrange(2, num_pages+1):
             logging.info('Extracting reviews from page {0}'.format(i))
             feed = get_feed(i, app_id)
-            reviews.extend(extract_review(feed))
+            if feed is not None:
+                reviews.extend(extract_review(feed))
 
     doc = db['app_data'].find_one({'app_id': app_id})
     if doc is None:
@@ -124,7 +131,7 @@ def push_scrape_tasks(task_id=None):
     if len(to_scrape) == 0:
         logging.info('Done')
     else:
-        g = chord(scrape_review.s(app_id) for app_id in to_scrape)(push_scrape_tasks.si())
+        g = chord(scrape_review.si(app_id) for app_id in to_scrape)(push_scrape_tasks.si())
 
 push_scrape_tasks.delay()
 
