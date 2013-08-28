@@ -114,7 +114,7 @@ def push_scrape_tasks(task_id=None):
     if len(to_scrape) == 0:
         logging.info('Done')
     else:
-        g = chord(scrape_review.si(app_id) for app_id in to_scrape)(push_scrape_tasks.si())
+        g = chord(scrape_review.s(app_id) for app_id in to_scrape)(push_scrape_tasks.s())
 
 @task(name='initialize')
 def initialize():
