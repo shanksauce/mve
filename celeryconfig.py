@@ -1,7 +1,7 @@
 from celery.schedules import crontab
 import config
 
-CELERYD_CONCURRENCY = 16
+CELERYD_CONCURRENCY = 8
 CELERY_TIMEZONE = 'UTC'
 CELERY_ENABLE_UTC = True
 CELERY_TASK_SERIALIZER = 'json'
