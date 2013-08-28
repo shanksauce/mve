@@ -42,7 +42,13 @@ def scrape_review(app_id, *args, **kwargs):
             if r.content is None:
                 raise Exception('No response text: {0}'.format(r.text))
             else:
-                return etree.fromstring(r.content)
+                feed = None
+                try:
+                    feed = etree.fromstring(r.content)
+                except Exception as ex:
+                    raise ex
+                finally:
+                    return feed
 
     def extract_single_value(regex, data):
         match = re.match(regex, data)
@@ -152,8 +158,12 @@ def initialize():
     logging.info('There are {0} appIDs in Redis'.format(redis.srandmember(TOTAL_APP_IDS)))
 
 logging.info('I am {0}'.format(socket.gethostname()))
+
+scrape_review.delay(329098762)
+
 if socket.gethostname() in config.INIT_HOSTS:
-    (initialize.s() | push_scrape_tasks.s())()
+    pass
+#    (initialize.s() | push_scrape_tasks.s())()
     
 
 
