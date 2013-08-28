@@ -110,7 +110,7 @@ def push_scrape_tasks(task_id=None):
         if s_app_id is not None:
             to_scrape.append(int(s_app_id))
     l = redis.scard(APP_IDS)
-    logging.info('------------> Progress: {0}/{1}  {2:.2f}%'.format(l, redis.srandmember(TOTAL_APP_IDS), 100.0*(l/redis.srandmember(TOTAL_APP_IDS))))
+    logging.info('------------> Progress: {0}/{1}  {2:.2f}%'.format(l, redis.srandmember(TOTAL_APP_IDS), 100.0*(l/int(redis.srandmember(TOTAL_APP_IDS)))))
     if len(to_scrape) == 0:
         logging.info('Done')
     else:
