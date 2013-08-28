@@ -23,13 +23,6 @@ celery.config_from_object(celeryconfig)
 ## Logging output formatting
 config.configure_logging()
 
-## Redis
-SCRAPE_URLS = '__scrape_urls'
-INCOMPLETE_TASKS = '__incomplete_tasks'
-redis = Redis(config.REDIS_HOSTNAME)
-redis.delete(INCOMPLETE_TASKS)
-redis.delete(SCRAPE_URLS)
-
 ## Cache appIDs
 app_ids = set()
 if os.path.exists('app_ids.p'):
@@ -47,8 +40,14 @@ else:
     pickle.dump(app_ids, open('app_ids.p', 'wb'))
 logging.info('Done. Got {0} appIDs to scrape'.format(len(app_ids)))
 
+## Redis
+APP_IDS = '__app_ids'
+redis = Redis(config.REDIS_HOSTNAME)
+redis.delete(APP_IDS)
+(redis.sadd(APP_IDS, app_id) for app_id in app_ids)
+
 ## Set pool bounds
-total_app_ids = len(app_ids)
+total_app_ids = redis.scard(APP_IDS)
 pool_size = 10
 
 @task(name='scrape_review')
@@ -109,15 +108,16 @@ def scrape_review(app_id, *args, **kwargs):
 
 @task(name='push_scrape_tasks', ignore_result=True)
 def push_scrape_tasks(task_id=None):
-    global app_ids, pool_size
+    global total_app_ids, pool_size
     to_scrape = []
     for i in xrange(0, pool_size):
         try:
-            to_scrape.append(app_ids.pop())
+            to_scrape.append(redis.spop(APP_IDS))
         except KeyError:
             logging.warning('Almost done')
             pass
-    logging.info('------------> Progress: {0}/{1}  {2:.2f}%'.format(len(app_ids), total_app_ids, 100.0*(len(app_ids)/total_app_ids)))
+    l = redis.scard(APP_IDS)
+    logging.info('------------> Progress: {0}/{1}  {2:.2f}%'.format(l, total_app_ids, 100.0*(l/total_app_ids)))
     if len(to_scrape) == 0:
         logging.info('Done')
     else:
