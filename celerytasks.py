@@ -148,6 +148,7 @@ def initialize():
         logging.info('Building Redis appID cache')
         redis.sadd(APP_IDS, *app_ids)
     total_app_ids = redis.scard(APP_IDS)
+    logging.info('There are {0} appIDs in Redis'.format(total_app_ids))    
     push_scrape_tasks.apply_async()
 
 logging.info('I am {0}'.format(socket.gethostname()))
