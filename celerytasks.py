@@ -125,7 +125,9 @@ def push_scrape_tasks(task_id=None):
     global total_app_ids, pool_size
     to_scrape = []
     for i in xrange(0, pool_size):
-        to_scrape.append(int(redis.spop(APP_IDS)))
+        s_app_id = redis.spop(APP_IDS)
+        if s_app_id is not None:
+            to_scrape.append(int(s_app_id))
     l = redis.scard(APP_IDS)
     logging.info('------------> Progress: {0}/{1}  {2:.2f}%'.format(l, total_app_ids, 100.0*(l/total_app_ids)))
     if len(to_scrape) == 0:
