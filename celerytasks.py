@@ -36,19 +36,14 @@ pool_size = 10
 def scrape_review(app_id, *args, **kwargs):
     def get_feed(page_num, app_id):
         r = requests.get(config.REVIEWS_URL.format(page_num, app_id))
+        r.encoding = 'UTF-8'
         if r.status_code != 200:
             raise Exception('Status code was: {0}'.format(r.status_code))
         else:
             if r.content is None:
-                raise Exception('No response text: {0}'.format(r.text))
+                raise Exception('No response text: {0}'.format(r.content))
             else:
-                feed = None
-                try:
-                    feed = etree.fromstring(r.content)
-                except Exception as ex:
-                    raise ex
-                finally:
-                    return feed
+                return etree.fromstring(r.content)
 
     def extract_single_value(regex, data):
         match = re.match(regex, data)
