@@ -154,11 +154,8 @@ def initialize():
 
 logging.info('I am {0}'.format(socket.gethostname()))
 
-scrape_review.delay(329098762)
-
 if socket.gethostname() in config.INIT_HOSTS:
-    pass
-#    (initialize.s() | push_scrape_tasks.s())()
+    (initialize.s() | push_scrape_tasks.s())()
     
 
 
