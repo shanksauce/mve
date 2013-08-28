@@ -101,7 +101,8 @@ def scrape_review(app_id, *args, **kwargs):
             reviews.extend(extract_review(feed))
 
     doc = db['app_data'].find_one({'app_id': app_id})
-    doc['reviews'] =  reviews
+    if len(reviews) > 0:
+        doc['reviews'] =  reviews
     _id = db['app_data'].save(doc, w=1)
     logging.info('Saved {0}'.format(_id))
 
