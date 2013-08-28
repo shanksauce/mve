@@ -147,7 +147,7 @@ def initialize():
         redis.sadd(APP_IDS, *app_ids)
     redis.sadd(TOTAL_APP_IDS, redis.scard(APP_IDS))
     logging.info('There are {0} appIDs in Redis'.format(redis.srandmember(TOTAL_APP_IDS)))
-    push_scrape_tasks.apply_async()
+#    push_scrape_tasks.delay()
 
 logging.info('I am {0}'.format(socket.gethostname()))
 if socket.gethostname() in config.INIT_HOSTS:

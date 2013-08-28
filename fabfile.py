@@ -161,7 +161,6 @@ def restart_celery():
                 run('truncate -s 0 {0}'.format(LOGFILE))
             time.sleep(10)
             with cd('~/mve'):
-                run('touch %s' % PIDFILE, pty=False)
                 run('source venv/bin/activate; nohup celery worker --pidfile={0} --logfile={1} -l INFO -E -A celerytasks >& /dev/null < /dev/null &'.format(PIDFILE, LOGFILE), pty=False)
 
         @hosts(config.BEAT_HOST)
@@ -174,7 +173,6 @@ def restart_celery():
                 run('truncate -s 0 {0}'.format(LOGFILE))
             time.sleep(10)
             with cd('~/mve'):
-                run('touch %s' % PIDFILE)
                 run('source venv/bin/activate; nohup celery worker --pidfile={0} --logfile={1} -l INFO -E -B -A celerytasks >& /dev/null < /dev/null &'.format(PIDFILE, LOGFILE), pty=False)
 
         @hosts(config.FLOWER_HOST)
@@ -187,15 +185,17 @@ def restart_celery():
                 run('truncate -s 0 {0}'.format(LOGFILE))
             time.sleep(10)
             with cd('~/mve'):
-                run('touch %s' % PIDFILE, pty=False)
                 run('source venv/bin/activate; nohup celery flower --pidfile={0} --logfile={1} >& /dev/null < /dev/null &'.format(PIDFILE, LOGFILE), pty=False)
 
         logging.info(yellow('Restarting celery beat...'))
         execute(restart_celery_beat)
+
         logging.info(yellow('Restarting celery flower...'))
         execute(restart_celery_flower)
-        logging.info(yellow('Restarting celery workers...'))
-        execute(restart_celery_workers)
+        time.sleep(10)
+
+#        logging.info(yellow('Restarting celery workers...'))
+#        execute(restart_celery_workers)
 
 @hosts(config.X_HOSTS)
 def update_env():
