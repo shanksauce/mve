@@ -26,8 +26,8 @@ config.configure_logging()
 
 ## Redis
 APP_IDS = '__app_ids'
+TOTAL_APP_IDS = '__total_app_ids'
 redis = Redis(config.REDIS_HOSTNAME)
-total_app_ids = 1
 
 ## Set pool bounds
 pool_size = 10
@@ -35,7 +35,6 @@ pool_size = 10
 @task(name='scrape_review')
 def scrape_review(app_id, *args, **kwargs):
     def get_feed(page_num, app_id):
-#        time.sleep(0.1)
         r = requests.get(config.REVIEWS_URL.format(page_num, app_id))
         if r.status_code != 200:
             logging.warning('************ Status code was: {0}'.format(r.status_code))
@@ -104,14 +103,14 @@ def scrape_review(app_id, *args, **kwargs):
 
 @task(name='push_scrape_tasks', ignore_result=True)
 def push_scrape_tasks(task_id=None):
-    global total_app_ids, pool_size
+    global pool_size
     to_scrape = []
     for i in xrange(0, pool_size):
         s_app_id = redis.spop(APP_IDS)
         if s_app_id is not None:
             to_scrape.append(int(s_app_id))
     l = redis.scard(APP_IDS)
-    logging.info('------------> Progress: {0}/{1}  {2:.2f}%'.format(l, total_app_ids, 100.0*(l/total_app_ids)))
+    logging.info('------------> Progress: {0}/{1}  {2:.2f}%'.format(l, redis.srandmember(TOTAL_APP_IDS), 100.0*(l/redis.srandmember(TOTAL_APP_IDS))))
     if len(to_scrape) == 0:
         logging.info('Done')
     else:
@@ -119,7 +118,6 @@ def push_scrape_tasks(task_id=None):
 
 @task(name='initialize')
 def initialize():
-    global total_app_ids
     app_ids = set()
     logging.info('Initializing...')
     if os.path.exists('app_ids.p'):
@@ -147,8 +145,8 @@ def initialize():
     else:
         logging.info('Building Redis appID cache')
         redis.sadd(APP_IDS, *app_ids)
-    total_app_ids = redis.scard(APP_IDS)
-    logging.info('There are {0} appIDs in Redis'.format(total_app_ids))    
+    redis.sadd(TOTAL_APP_IDS, redis.scard(APP_IDS))
+    logging.info('There are {0} appIDs in Redis'.format(redis.srandmember(TOTAL_APP_IDS)))
     push_scrape_tasks.apply_async()
 
 logging.info('I am {0}'.format(socket.gethostname()))
