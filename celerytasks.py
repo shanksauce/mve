@@ -1,5 +1,6 @@
 import re
 import os
+import socket
 import config
 import pickle
 import requests
@@ -23,34 +24,9 @@ celery.config_from_object(celeryconfig)
 ## Logging output formatting
 config.configure_logging()
 
-## Cache appIDs
-app_ids = set()
-if os.path.exists('app_ids.p'):
-    logging.info('Loading appIDs from file')
-    app_ids = pickle.load(open('app_ids.p', 'rb'))
-else:
-    docs = db['app_data'].find({'reviews':{'$exists':0}}, timeout=False)
-    total = docs.count()
-    i = -1
-    for doc in docs:
-        i += 1
-        app_ids.add(doc['app_id'])
-        logging.info('{0:.2f}%'.format(100.0*i/total))
-    logging.info('Writing appIDs to file')
-    pickle.dump(app_ids, open('app_ids.p', 'wb'))
-logging.info('Done. Got {0} appIDs to scrape'.format(len(app_ids)))
-
 ## Redis
 APP_IDS = '__app_ids'
 redis = Redis(config.REDIS_HOSTNAME)
-if redis.exists(APP_IDS):
-    logging.info('Checking Redis appID cache')
-    if redis.scard(APP_IDS) != len(app_ids):
-        logging.warning('Reseting Redis appID cache')
-        redis.delete(APP_IDS)
-        redis.sadd(APP_IDS, *app_ids)
-    else:
-        logging.info('Reusing Redis appID cache')        
 
 ## Set pool bounds
 total_app_ids = redis.scard(APP_IDS)
@@ -141,7 +117,38 @@ def push_scrape_tasks(task_id=None):
     else:
         g = chord(scrape_review.si(app_id) for app_id in to_scrape)(push_scrape_tasks.si())
 
-push_scrape_tasks.delay()
+@task(name='initialize')
+def initialize():
+    app_ids = set()
+
+    logging.info('Initializing...')
+
+    if os.path.exists('app_ids.p'):
+        logging.info('Loading appIDs from file')
+        app_ids = pickle.load(open('app_ids.p', 'rb'))
+    else:
+        docs = db['app_data'].find({'reviews':{'$exists':0}}, timeout=False)
+        total = docs.count()
+        i = -1
+        for doc in docs:
+            i += 1
+            app_ids.add(doc['app_id'])
+            logging.info('{0:.2f}%'.format(100.0*i/total))
+        logging.info('Writing appIDs to file')
+        pickle.dump(app_ids, open('app_ids.p', 'wb'))
+    logging.info('Done. Got {0} appIDs to scrape'.format(len(app_ids)))
+    if redis.exists(APP_IDS):
+        logging.info('Checking Redis appID cache')
+        if redis.scard(APP_IDS) != len(app_ids):
+            logging.warning('Reseting Redis appID cache')
+            redis.delete(APP_IDS)
+            redis.sadd(APP_IDS, *app_ids)
+        else:
+            logging.info('Reusing Redis appID cache')        
+    push_scrape_tasks.apply_async()
+
+if socket.gethostname() in ['x0', 'bshank12']:
+    initialize.apply_async()
 
 
 
