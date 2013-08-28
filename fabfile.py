@@ -190,9 +190,8 @@ def restart_celery():
         logging.info(yellow('Restarting celery beat...'))
         execute(restart_celery_beat)
 
-        logging.info(yellow('Restarting celery flower...'))
-        execute(restart_celery_flower)
-        time.sleep(10)
+#        logging.info(yellow('Restarting celery flower...'))
+#        execute(restart_celery_flower)
 
 #        logging.info(yellow('Restarting celery workers...'))
 #        execute(restart_celery_workers)

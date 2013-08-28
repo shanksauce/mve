@@ -11,7 +11,7 @@ from pprint import pprint
 from lxml import etree
 from pymongo import MongoClient
 from redis import Redis
-from celery import Celery, task, chord, current_task
+from celery import Celery, task, chord, chain, current_task
 
 ## MongoDB
 mc = MongoClient(config.MONGO_CONNECTION_STRING)
@@ -147,11 +147,11 @@ def initialize():
         redis.sadd(APP_IDS, *app_ids)
     redis.sadd(TOTAL_APP_IDS, redis.scard(APP_IDS))
     logging.info('There are {0} appIDs in Redis'.format(redis.srandmember(TOTAL_APP_IDS)))
-#    push_scrape_tasks.delay()
 
 logging.info('I am {0}'.format(socket.gethostname()))
 if socket.gethostname() in config.INIT_HOSTS:
-    initialize.apply_async()
+    (initialize.s() | push_scrape_tasks.s())()
+    
 
 
 
