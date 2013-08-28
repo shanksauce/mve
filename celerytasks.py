@@ -12,7 +12,6 @@ from pymongo import MongoClient
 from redis import Redis
 from celery import Celery, task, chord, current_task
 
-
 ## MongoDB
 mc = MongoClient(config.MONGO_CONNECTION_STRING)
 db = mc[config.MONGO_DB]
@@ -49,10 +48,7 @@ else:
 logging.info('Done. Got {0} appIDs to scrape'.format(len(app_ids)))
 
 ## Set pool bounds
-pool_size = 1
-#for i in xrange(1, int(len(app_ids)/pool_size)):
-#    redis.sadd(INCOMPLETE_TASKS, i)
-
+pool_size = 10
 
 @task(name='scrape_review')
 def scrape_review(app_id, *args, **kwargs):

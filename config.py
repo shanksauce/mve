@@ -5,9 +5,9 @@ from colorlog import ColoredFormatter
 REVIEWS_URL = 'http://itunes.apple.com/us/rss/customerreviews/page={0}/id={1}/sortby=mostrecent/xml'
 
 MONGO_DB = 'app'
-MONGO_CONNECTION_STRING = 'mongodb://localhost/%s' % MONGO_DB
+MONGO_CONNECTION_STRING = 'mongodb://x3/%s' % MONGO_DB
 
-REDIS_HOSTNAME = 'localhost'
+REDIS_HOSTNAME = 'x0'
 REDIS_PORT = 6379
 
 X_HOSTS = ['x{0}'.format(i) for i in xrange(0,6)]
