@@ -48,6 +48,7 @@ else:
 logging.info('Done. Got {0} appIDs to scrape'.format(len(app_ids)))
 
 ## Set pool bounds
+total_app_ids = len(app_ids)
 pool_size = 10
 
 @task(name='scrape_review')
@@ -97,10 +98,14 @@ def scrape_review(app_id, *args, **kwargs):
             reviews.extend(extract_review(feed))
 
     doc = db['app_data'].find_one({'app_id': app_id})
-    if len(reviews) > 0:
-        doc['reviews'] =  reviews
-    _id = db['app_data'].save(doc, w=1)
-    logging.info('Saved {0}'.format(_id))
+    if doc is None:
+        logging.warning('Could not find document in database for appID {0}'.format(app_id))
+    else:
+        if len(reviews) > 0:
+            doc['reviews'] =  reviews
+        _id = db['app_data'].save(doc, w=1)
+        logging.info('Saved {0}'.format(_id))
+
 
 @task(name='push_scrape_tasks', ignore_result=True)
 def push_scrape_tasks(task_id=None):
@@ -112,10 +117,9 @@ def push_scrape_tasks(task_id=None):
         except KeyError:
             logging.warning('Almost done')
             pass
+    logging.info('------------> Progress: {0}/{1}  {2:.2f}%'.format(len(app_ids), total_app_ids, 100.0*(len(app_ids)/total_app_ids)))
     if len(to_scrape) == 0:
-        if not os.path.exists('scrape_urls.p'):
-            logging.info('Dumping scrape URLs to file'.format(redis.scard(SCRAPE_URLS)))
-            pickle.dump(redis.smembers(SCRAPE_URLS), open('scrape_urls.p', 'wb'))
+        logging.info('Done')
     else:
         g = chord(scrape_review.s(app_id) for app_id in to_scrape)(push_scrape_tasks.si())
 
