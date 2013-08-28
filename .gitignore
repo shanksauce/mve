@@ -4,3 +4,4 @@ venv
 *.txt
 mongo/dump
 celerybeat-schedule.db
+celerybeat-schedule
