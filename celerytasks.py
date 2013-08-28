@@ -121,9 +121,7 @@ def push_scrape_tasks(task_id=None):
 def initialize():
     global total_app_ids
     app_ids = set()
-
     logging.info('Initializing...')
-
     if os.path.exists('app_ids.p'):
         logging.info('Loading appIDs from file')
         app_ids = pickle.load(open('app_ids.p', 'rb'))
@@ -147,12 +145,12 @@ def initialize():
         else:
             logging.info('Reusing Redis appID cache')
     else:
-        logging.warning('Building Redis appID cache')        
+        logging.info('Building Redis appID cache')
         redis.sadd(APP_IDS, *app_ids)
-
     total_app_ids = redis.scard(APP_IDS)
     push_scrape_tasks.apply_async()
 
+logging.info('I am {0}'.format(socket.gethostname()))
 if socket.gethostname() in config.INIT_HOSTS:
     initialize.apply_async()
 
