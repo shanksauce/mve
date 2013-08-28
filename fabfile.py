@@ -167,8 +167,8 @@ def kill_celery():
     LOGFILE = '/var/log/celery'
     with settings(warn_only=True):
         if fabric.contrib.files.exists(PIDFILE):
-            run('kill -s 2 $(cat {0}) && rm {0}'.format(PIDFILE))
-            run('killall celery')
+            run('kill -s 2 $(cat {0}) && rm {0}'.format(PIDFILE), pty=False)
+            run('killall celery', pty=False)
 
 def restart_celery():
     with settings(warn_only=True):
@@ -177,10 +177,10 @@ def restart_celery():
             PIDFILE = '/var/run/celery.pid'
             LOGFILE = '/var/log/celery'
             if fabric.contrib.files.exists(PIDFILE):
-                run('kill -s 2 $(cat {0}) && rm {0}'.format(PIDFILE))
+                run('kill -s 2 $(cat {0}) && rm {0}'.format(PIDFILE), pty=False)
             time.sleep(10)
             with cd('~/mve'):
-                run('touch %s' % PIDFILE)
+                run('touch %s' % PIDFILE, pty=False)
                 run('source venv/bin/activate; nohup celery worker --pidfile={0} --logfile={1} -l INFO -E -A celerytasks >& /dev/null < /dev/null &'.format(PIDFILE, LOGFILE), pty=False)
 
         @hosts(config.BEAT_HOST)
@@ -199,10 +199,10 @@ def restart_celery():
             PIDFILE = '/var/run/celery-flower.pid'
             LOGFILE = '/var/log/celery-flower'
             if fabric.contrib.files.exists(PIDFILE):
-                run('kill -s 2 $(cat {0}) && rm {0}'.format(PIDFILE))
+                run('kill -s 2 $(cat {0}) && rm {0}'.format(PIDFILE), pty=False)
             time.sleep(10)
             with cd('~/mve'):
-                run('touch %s' % PIDFILE)
+                run('touch %s' % PIDFILE, pty=False)
                 run('source venv/bin/activate; nohup celery flower --pidfile={0} --logfile={1} >& /dev/null < /dev/null &'.format(PIDFILE, LOGFILE), pty=False)
 
         logging.info(yellow('Restarting celery beat...'))
