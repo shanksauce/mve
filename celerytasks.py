@@ -37,12 +37,10 @@ def scrape_review(app_id, *args, **kwargs):
     def get_feed(page_num, app_id):
         r = requests.get(config.REVIEWS_URL.format(page_num, app_id))
         if r.status_code != 200:
-            logging.warning('************ Status code was: {0}'.format(r.status_code))
-            return None
+            raise Exception('Status code was: {0}'.format(r.status_code))
         else:
             if r.content is None:
-                logging.warning('************ No response text: {0}'.format(r.text))
-                return None
+                raise Exception('No response text: {0}'.format(r.text))
             else:
                 return etree.fromstring(r.content)
 
@@ -71,10 +69,14 @@ def scrape_review(app_id, *args, **kwargs):
     if app_id is None:
         return
     logging.info('Extracting reviews from page 1')
-    feed = get_feed(1, app_id)
-    if feed is None:
+
+    feed = None
+    try:
+        feed = get_feed(1, app_id)
+    except Exception as ex:
         logging.warning('Could not scrape appID {0}'.format(app_id))
-        return 'E_SCRAPE_FAILED'
+        return {'error': ex.message}
+
     num_pages = feed.find('.//{http://www.w3.org/2005/Atom}link[@rel="last"]')
     if num_pages is not None and 'href' in num_pages.attrib:
         num_pages = extract_single_value('.*?/page=?([0-9]+)/?.*$', num_pages.attrib['href'])
@@ -82,6 +84,7 @@ def scrape_review(app_id, *args, **kwargs):
             num_pages = 1
         else:
             num_pages = int(num_pages)
+
     reviews.extend(extract_review(feed))
     if num_pages > 1:
         for i in xrange(2, num_pages+1):
@@ -93,13 +96,13 @@ def scrape_review(app_id, *args, **kwargs):
     doc = db['app_data'].find_one({'app_id': app_id})
     if doc is None:
         logging.warning('Could not find document in database for appID {0}'.format(app_id))
-        return 'E_DOCUMENT_NOT_FOUND'
+        return {'error': 'Mongo document not found for appID {0}'.format(app_id)}
     else:
         if len(reviews) > 0:
             doc['reviews'] =  reviews
         _id = db['app_data'].save(doc, w=1)
         logging.info('Saved {0}'.format(_id))
-    return 'E_OK'
+    return 'OK'
 
 @task(name='push_scrape_tasks', ignore_result=True)
 def push_scrape_tasks(task_id=None):

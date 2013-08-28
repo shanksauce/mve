@@ -187,14 +187,14 @@ def restart_celery():
             with cd('~/mve'):
                 run('source venv/bin/activate; nohup celery flower --pidfile={0} --logfile={1} >& /dev/null < /dev/null &'.format(PIDFILE, LOGFILE), pty=False)
 
+        logging.info(yellow('Restarting celery flower...'))
+        execute(restart_celery_flower)
+
         logging.info(yellow('Restarting celery beat...'))
         execute(restart_celery_beat)
 
-#        logging.info(yellow('Restarting celery flower...'))
-#        execute(restart_celery_flower)
-
-#        logging.info(yellow('Restarting celery workers...'))
-#        execute(restart_celery_workers)
+        logging.info(yellow('Restarting celery workers...'))
+        execute(restart_celery_workers)
 
 @hosts(config.X_HOSTS)
 def update_env():
