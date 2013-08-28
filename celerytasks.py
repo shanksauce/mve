@@ -54,7 +54,10 @@ pool_size = 10
 def scrape_review(app_id, *args, **kwargs):
     def get_feed(page_num, app_id):
         r = requests.get(config.REVIEWS_URL.format(page_num, app_id))
-        return etree.fromstring(r.content)
+        if r.content is not None:
+            return etree.fromstring(r.content)
+        else:
+            return None
 
     def extract_single_value(regex, data):
         match = re.match(regex, data)
@@ -82,6 +85,9 @@ def scrape_review(app_id, *args, **kwargs):
         return
     logging.info('Extracting reviews from page 1')
     feed = get_feed(1, app_id)
+    if feed is None:
+        logging.warning('Could not scrape appID {0}'.format(app_id))
+        return 'E_SCRAPE_FAILED'
     num_pages = feed.find('.//{http://www.w3.org/2005/Atom}link[@rel="last"]')
     if num_pages is not None and 'href' in num_pages.attrib:
         num_pages = extract_single_value('.*?/page=?([0-9]+)/?.*$', num_pages.attrib['href'])
@@ -99,23 +105,20 @@ def scrape_review(app_id, *args, **kwargs):
     doc = db['app_data'].find_one({'app_id': app_id})
     if doc is None:
         logging.warning('Could not find document in database for appID {0}'.format(app_id))
+        return 'E_DOCUMENT_NOT_FOUND'
     else:
         if len(reviews) > 0:
             doc['reviews'] =  reviews
         _id = db['app_data'].save(doc, w=1)
         logging.info('Saved {0}'.format(_id))
-
+    return 'E_OK'
 
 @task(name='push_scrape_tasks', ignore_result=True)
 def push_scrape_tasks(task_id=None):
     global total_app_ids, pool_size
     to_scrape = []
     for i in xrange(0, pool_size):
-        try:
-            to_scrape.append(redis.spop(APP_IDS))
-        except KeyError:
-            logging.warning('Almost done')
-            pass
+        to_scrape.append(int(redis.spop(APP_IDS)))
     l = redis.scard(APP_IDS)
     logging.info('------------> Progress: {0}/{1}  {2:.2f}%'.format(l, total_app_ids, 100.0*(l/total_app_ids)))
     if len(to_scrape) == 0:
