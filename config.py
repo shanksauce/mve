@@ -10,6 +10,7 @@ MONGO_CONNECTION_STRING = 'mongodb://x3/%s' % MONGO_DB
 REDIS_HOSTNAME = 'x0'
 REDIS_PORT = 6379
 
+INIT_HOSTS = ['x0', 'bshank12']
 X_HOSTS = ['x{0}'.format(i) for i in xrange(0,6)]
 MONGOS_HOSTS = ['x{0}'.format(i) for i in xrange(3,6)]
 MONGOD_CONFIG_HOSTS = ['x{0}'.format(i) for i in xrange(0,3)]

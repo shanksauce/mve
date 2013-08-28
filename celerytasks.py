@@ -27,9 +27,9 @@ config.configure_logging()
 ## Redis
 APP_IDS = '__app_ids'
 redis = Redis(config.REDIS_HOSTNAME)
+total_app_ids = 1
 
 ## Set pool bounds
-total_app_ids = redis.scard(APP_IDS)
 pool_size = 10
 
 @task(name='scrape_review')
@@ -119,6 +119,7 @@ def push_scrape_tasks(task_id=None):
 
 @task(name='initialize')
 def initialize():
+    global total_app_ids
     app_ids = set()
 
     logging.info('Initializing...')
@@ -144,16 +145,12 @@ def initialize():
             redis.delete(APP_IDS)
             redis.sadd(APP_IDS, *app_ids)
         else:
-            logging.info('Reusing Redis appID cache')        
+            logging.info('Reusing Redis appID cache')
+    total_app_ids = redis.scard(APP_IDS)
     push_scrape_tasks.apply_async()
 
-if socket.gethostname() in ['x0', 'bshank12']:
+if socket.gethostname() in config.INIT_HOSTS:
     initialize.apply_async()
-
-
-
-
-
 
 
 
