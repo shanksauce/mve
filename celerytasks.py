@@ -43,8 +43,14 @@ logging.info('Done. Got {0} appIDs to scrape'.format(len(app_ids)))
 ## Redis
 APP_IDS = '__app_ids'
 redis = Redis(config.REDIS_HOSTNAME)
-redis.delete(APP_IDS)
-redis.sadd(APP_IDS, *app_ids)
+if redis.exists(APP_IDS):
+    logging.info('Checking Redis appID cache')
+    if redis.scard(APP_IDS) != len(app_ids):
+        logging.warning('Reseting Redis appID cache')
+        redis.delete(APP_IDS)
+        redis.sadd(APP_IDS, *app_ids)
+    else:
+        logging.info('Reusing Redis appID cache')        
 
 ## Set pool bounds
 total_app_ids = redis.scard(APP_IDS)
@@ -133,7 +139,7 @@ def push_scrape_tasks(task_id=None):
     if len(to_scrape) == 0:
         logging.info('Done')
     else:
-        g = chord(scrape_review.si(app_id) for app_id in to_scrape)(push_scrape_tasks.si())
+        g = chord((scrape_review.si(app_id) for app_id in to_scrape), push_scrape_tasks.si())
 
 push_scrape_tasks.delay()
 
