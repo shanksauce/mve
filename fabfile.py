@@ -57,28 +57,6 @@ def setup_env():
         with cd('~/mve'):
             run('virtualenv venv; source venv/bin/activate; pip install -r etc/pip.requirements')
 
-@hosts('x0')
-def sync_rc():
-    with settings(warn_only=True):
-        logging.info(green('Syncing rc scripts for shard hosts'))
-        for h in config.X_HOSTS:
-            if h == 'x0':
-                continue
-            run('scp {0} {1}:{0}'.format('/etc/rc.d/rc.mongod', h))
-
-        logging.info('')
-        logging.info(green('Syncing rc scripts for config hosts'))
-        for h in config.MONGOD_CONFIG_HOSTS:
-            if h == 'x0':
-                continue
-            run('scp {0} {1}:{0}'.format('/etc/rc.d/rc.mongod-config', h))
-
-        logging.info('')
-        logging.info(green('Syncing rc scripts for router hosts'))
-        for h in config.MONGOS_HOSTS:
-            run('scp {0} {1}:{0}'.format('/etc/rc.d/rc.mongos', h))
-
-
 @hosts(config.X_HOSTS)
 def update_system():
     with settings(warn_only=True):
@@ -169,6 +147,7 @@ def kill_celery():
         if fabric.contrib.files.exists(PIDFILE):
             run('kill -s 2 $(cat {0}) && rm {0}'.format(PIDFILE), pty=False)
             run('killall celery', pty=False)
+            run('truncate -s 0 {0}'.format(LOGFILE))
 
 def restart_celery():
     with settings(warn_only=True):
@@ -178,6 +157,8 @@ def restart_celery():
             LOGFILE = '/var/log/celery'
             if fabric.contrib.files.exists(PIDFILE):
                 run('kill -s 2 $(cat {0}) && rm {0}'.format(PIDFILE), pty=False)
+                run('killall celery', pty=False)
+                run('truncate -s 0 {0}'.format(LOGFILE))
             time.sleep(10)
             with cd('~/mve'):
                 run('touch %s' % PIDFILE, pty=False)
@@ -189,6 +170,8 @@ def restart_celery():
             LOGFILE = '/var/log/celery'
             if fabric.contrib.files.exists(PIDFILE):
                 run('kill -s 2 $(cat {0}) && rm {0}'.format(PIDFILE))
+                run('killall celery', pty=False)                
+                run('truncate -s 0 {0}'.format(LOGFILE))
             time.sleep(10)
             with cd('~/mve'):
                 run('touch %s' % PIDFILE)
@@ -200,6 +183,8 @@ def restart_celery():
             LOGFILE = '/var/log/celery-flower'
             if fabric.contrib.files.exists(PIDFILE):
                 run('kill -s 2 $(cat {0}) && rm {0}'.format(PIDFILE), pty=False)
+                run('killall celery', pty=False)                
+                run('truncate -s 0 {0}'.format(LOGFILE))
             time.sleep(10)
             with cd('~/mve'):
                 run('touch %s' % PIDFILE, pty=False)
