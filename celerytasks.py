@@ -6,8 +6,14 @@ import requests
 import celeryconfig
 import logging
 import time
+import elementtree.ElementTree as ET
+from pymongo import MongoClient
 from redis import Redis
 from celery import Celery, chain, group, chord, current_task, states, task
+
+## MongoDB
+mc = MongoClient(config.MONGO_CONNECTION_STRING)
+db = mc[config.MONGO_DB]
 
 ## Celery
 celery = Celery('celerytasks')
@@ -16,23 +22,36 @@ celery.config_from_object(celeryconfig)
 ## Logging output formatting
 config.configure_logging()
 
-## Load probe URLs
-logging.info('Loading list of probe URLs from file')
-probe_urls = pickle.load(open('probe_urls.p', 'rb'))
-
 ## Redis
 SCRAPE_URLS = '__scrape_urls'
 INCOMPLETE_TASKS = '__incomplete_tasks'
-COMPLETED_TASKS = '__completed_tasks'
 redis = Redis(config.REDIS_HOSTNAME)
 redis.delete(INCOMPLETE_TASKS)
-redis.delete(COMPLETED_TASKS)
 redis.delete(SCRAPE_URLS)
+
+## Cache appIDs
+app_ids = set()
+if os.path.exists('app_ids.p'):
+    logging.info('Loading appIDs from file')
+    app_ids = pickle.load(open('app_ids.p', 'rb'))
+else:
+    docs = db['app_data'].find({'reviews':{'$exists':0}}, timeout=False)
+    total = docs.count()
+    i = -1
+    for doc in docs:
+        i += 1
+        app_ids.add(doc['app_id'])
+        logging.info('{0:.2f}%'.format(100.0*i/total))
+    logging.info('Writing appIDs to file')
+    pickle.dump(app_ids, open('app_ids.p', 'wb'))
+logging.info('Done. Got {0} appIDs to scrape'.format(len(app_ids)))
 
 ## Set pool bounds
 pool_size = 25
-for i in xrange(1, int(len(probe_urls)/pool_size)):
+for i in xrange(1, int(len(app_ids)/pool_size)):
     redis.sadd(INCOMPLETE_TASKS, i)
+
+exit()
 
 def parse_feed(feed):
     if 'feed' not in feed:
@@ -49,6 +68,9 @@ def extract_single_value(regex, data):
 @task(name='get_scrape_url')
 def get_scrape_url(url):
     r = requests.get(url)
+
+    parse(urllib.urlopen(url)).getroot()
+
     app_id = int(extract_single_value('.*?/id=([0-9]+)/.*$', r.url))
     num_pages = 1
     if r.status_code != 200:
@@ -67,8 +89,8 @@ def get_scrape_url(url):
 
 @task(name='push_scrape_tasks', ignore_result=True)
 def push_scrape_tasks(task_id=None):
-    global probe_urls, pool_size
-    num_tasks = int(len(probe_urls)/pool_size)
+    global app_ids, pool_size
+    num_tasks = int(len(app_ids)/pool_size)
     task_index = redis.spop(INCOMPLETE_TASKS)
     if task_index is None:
         if not os.path.exists('scrape_urls.p'):
