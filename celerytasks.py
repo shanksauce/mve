@@ -6,10 +6,12 @@ import requests
 import celeryconfig
 import logging
 import time
-import elementtree.ElementTree as ET
+from pprint import pprint
+from lxml import etree
 from pymongo import MongoClient
 from redis import Redis
-from celery import Celery, chain, group, chord, current_task, states, task
+from celery import Celery, task, chord, current_task
+
 
 ## MongoDB
 mc = MongoClient(config.MONGO_CONNECTION_STRING)
@@ -47,61 +49,85 @@ else:
 logging.info('Done. Got {0} appIDs to scrape'.format(len(app_ids)))
 
 ## Set pool bounds
-pool_size = 25
-for i in xrange(1, int(len(app_ids)/pool_size)):
-    redis.sadd(INCOMPLETE_TASKS, i)
+pool_size = 1
+#for i in xrange(1, int(len(app_ids)/pool_size)):
+#    redis.sadd(INCOMPLETE_TASKS, i)
 
-exit()
 
-def parse_feed(feed):
-    if 'feed' not in feed:
-        raise Exception('The feed seems to be messed up. Here\'s the raw JSON:\n%s ' % r.text)
-    return feed['feed']
+@task(name='scrape_review')
+def scrape_review(app_id, *args, **kwargs):
+    def get_feed(page_num, app_id):
+        r = requests.get(config.REVIEWS_URL.format(page_num, app_id))
+        return etree.fromstring(r.content)
 
-def extract_single_value(regex, data):
-    match = re.match(regex, data)
-    if match is None:
-        logging.warning('Unable to extract data using regex /{0}/ for data `{1}`'.format(regex, data))
-        return None
-    return match.group(1)
+    def extract_single_value(regex, data):
+        match = re.match(regex, data)
+        if match is None:
+            logging.warning('Unable to extract data using regex /{0}/ for data `{1}`'.format(regex, data))
+            return None
+        return match.group(1)
 
-@task(name='get_scrape_url')
-def get_scrape_url(url):
-    r = requests.get(url)
+    def extract_review(feed):
+        reviews = []
+        for entry in feed.findall('.//{http://www.w3.org/2005/Atom}entry'):
+            review_node = entry.find('./{http://www.w3.org/2005/Atom}content[@type="text"]')
+            if review_node is not None:
+                reviews.append({
+                    'author_id': int(entry.find('./{http://www.w3.org/2005/Atom}id').text),
+                    'author': entry.find('./{http://www.w3.org/2005/Atom}author/{http://www.w3.org/2005/Atom}name').text,
+                    'review': review_node.text,
+                    'rating': int(entry.find('./{http://itunes.apple.com/rss}rating').text)
+                })
+        return reviews
 
-    parse(urllib.urlopen(url)).getroot()
-
-    app_id = int(extract_single_value('.*?/id=([0-9]+)/.*$', r.url))
     num_pages = 1
-    if r.status_code != 200:
-        logging.warning('Status was {0} for appID {1}'.format(r.status_code, app_id))
-        redis.sadd(SCRAPE_URLS, {'app_id': app_id, 'num_pages': 1})
-    else:
-        feed = parse_feed(r.json())
-        page_url = [x for x in feed['link'] if x['attributes']['rel'] == 'last'][-1]['attributes']['href']
-        if len(page_url) > 0:
-            num_pages = int(extract_single_value('.*?/page=([0-9]+)/.*$', page_url))
-        logging.info('Got {0} pages'.format(num_pages))
-        for i in xrange(1, num_pages+1):
-            redis.sadd(SCRAPE_URLS, {'app_id': app_id, 'num_pages': 1})
-        logging.info('Now have {0} scrape URLs'.format(redis.scard(SCRAPE_URLS)))
-    return {'app_id': app_id, 'status': r.status_code, 'num_pages': num_pages}
+    reviews = []
+    if app_id is None:
+        return
+    logging.info('Extracting reviews from page 1')
+    feed = get_feed(1, app_id)
+    num_pages = feed.find('.//{http://www.w3.org/2005/Atom}link[@rel="last"]')
+    if num_pages is not None and 'href' in num_pages.attrib:
+        num_pages = extract_single_value('.*?/page=?([0-9]+)/?.*$', num_pages.attrib['href'])
+        if num_pages is None:
+            num_pages = 1
+        else:
+            num_pages = int(num_pages)
+    reviews.extend(extract_review(feed))
+    if num_pages > 1:
+        for i in xrange(2, num_pages+1):
+            logging.info('Extracting reviews from page {0}'.format(i))
+            feed = get_feed(i, app_id)
+            reviews.extend(extract_review(feed))
+
+    doc = db['app_data'].find_one({'app_id': app_id})
+    doc['reviews'] =  reviews
+    _id = db['app_data'].save(doc, w=1)
+    logging.info('Saved {0}'.format(_id))
 
 @task(name='push_scrape_tasks', ignore_result=True)
 def push_scrape_tasks(task_id=None):
     global app_ids, pool_size
-    num_tasks = int(len(app_ids)/pool_size)
-    task_index = redis.spop(INCOMPLETE_TASKS)
-    if task_index is None:
+    to_scrape = []
+    for i in xrange(0, pool_size):
+        try:
+            to_scrape.append(app_ids.pop())
+        except KeyError:
+            logging.warning('Almost done')
+            pass
+    if len(to_scrape) == 0:
         if not os.path.exists('scrape_urls.p'):
             logging.info('Dumping scrape URLs to file'.format(redis.scard(SCRAPE_URLS)))
             pickle.dump(redis.smembers(SCRAPE_URLS), open('scrape_urls.p', 'wb'))
-        return 'DONE'
-    task_index = int(task_index)
-    j = task_index*pool_size
-    i = j-pool_size
-    logging.info('Getting scrape URLs from range {0} to {1}'.format(i,j))
-    g = chord(get_scrape_url.s(url) for url in probe_urls[i:j])(push_scrape_tasks.s())
+    else:
+        g = chord(scrape_review.s(app_id) for app_id in to_scrape)(push_scrape_tasks.si())
 
 push_scrape_tasks.delay()
+
+
+
+
+
+
+
 
