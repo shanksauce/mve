@@ -146,6 +146,10 @@ def initialize():
             redis.sadd(APP_IDS, *app_ids)
         else:
             logging.info('Reusing Redis appID cache')
+    else:
+        logging.warning('Building Redis appID cache')        
+        redis.sadd(APP_IDS, *app_ids)
+
     total_app_ids = redis.scard(APP_IDS)
     push_scrape_tasks.apply_async()
 
