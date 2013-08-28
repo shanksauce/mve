@@ -53,7 +53,7 @@ pool_size = 10
 @task(name='scrape_review')
 def scrape_review(app_id, *args, **kwargs):
     def get_feed(page_num, app_id):
-        time.sleep(0.1)
+#        time.sleep(0.1)
         r = requests.get(config.REVIEWS_URL.format(page_num, app_id))
         if r.status_code != 200:
             logging.warning('************ Status code was: {0}'.format(r.status_code))
