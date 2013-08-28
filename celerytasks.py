@@ -44,7 +44,7 @@ logging.info('Done. Got {0} appIDs to scrape'.format(len(app_ids)))
 APP_IDS = '__app_ids'
 redis = Redis(config.REDIS_HOSTNAME)
 redis.delete(APP_IDS)
-(redis.sadd(APP_IDS, app_id) for app_id in app_ids)
+redis.sadd(APP_IDS, *app_ids)
 
 ## Set pool bounds
 total_app_ids = redis.scard(APP_IDS)
