@@ -1,7 +1,7 @@
 from celery.schedules import crontab
 import config
 
-CELERYD_CONCURRENCY = 1
+#CELERYD_CONCURRENCY = 1
 
 CELERY_CHORD_PROPAGATES = True
 CELERY_TIMEZONE = 'UTC'
