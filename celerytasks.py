@@ -49,7 +49,7 @@ ERRORS = {
 }
 
 
-@task(name='scrape_review', max_retries=3, default_retry_delay=30, rate_limit='{0}/s'.format(pool_size))
+@task(name='scrape_review', max_retries=3, default_retry_delay=10, rate_limit='{0}/s'.format(pool_size))
 def scrape_review(app_id, *args, **kwargs):
     global format
     if format == 'xml':

@@ -139,6 +139,7 @@ def rm_scrape_urls():
     with cd('~/mve'):
         run('rm -f scrape_urls.')
 
+@parallel
 @hosts(config.X_HOSTS)
 def kill_celery():
     with settings(warn_only=True):
@@ -160,6 +161,7 @@ def start_celery_flower():
     with cd('~/mve'):
         run('source venv/bin/activate; nohup celery flower --pidfile={0} --logfile={1} >& /dev/null < /dev/null &'.format(config.CELERY_PIDFILE, config.CELERY_LOGFILE), pty=False)
 
+@parallel
 @hosts(config.WORKER_HOSTS)
 def start_celery_workers():
     with cd('~/mve'):
