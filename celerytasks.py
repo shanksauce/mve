@@ -4,7 +4,7 @@ import gc
 import socket
 import config
 import pickle
-import requests
+import urllib2
 import celeryconfig
 import logging
 import time
@@ -33,23 +33,27 @@ redis = Redis(config.REDIS_HOSTNAME)
 ## Set pool bounds
 pool_size = 10
 
+## Garbage collector
 gc.enable()
 
-@task(name='scrape_review')
+
+@task(name='scrape_review', max_retries=3, default_retry_delay=30)
 def scrape_review(app_id, *args, **kwargs):
     def get_feed(page_num, app_id):
-        r = requests.get(config.REVIEWS_URL.format(page_num, app_id))
-        r.encoding = 'UTF-8'
-        if r.status_code != 200:
-            raise Exception('Status code was: {0}'.format(r.status_code))
-        else:
-            if r.content is None:
-                raise Exception('No response text: {0}'.format(r.content))
-            else:
-                try:
-                    return etree.fromstring(r.content)
-                except Exception as ex:
-                    raise ex
+        try:
+            r = urllib2.urlopen(config.REVIEWS_URL.format(page_num, app_id))
+        except urllib2.HTTPError as ex:
+            logging.warning('Status code was {0}. Retrying...'.format(ex.code))
+            raise scrape_review.retry(exc=ex)
+        except urllib2.URLError as ex:
+            logging.warning('Unknown URLError: {0}. Retrying...'.format(ex.message))
+            raise scrape_review.retry(exc=ex)
+
+        try:
+            return etree.parse(r)
+        except Exception as ex:
+            logging.warning('Unknown XML parse error: {0}. Retrying...'.format(ex.message))
+            raise scrape_review.retry(exc=ex)
 
     def extract_single_value(regex, data):
         match = re.match(regex, data)
@@ -82,7 +86,7 @@ def scrape_review(app_id, *args, **kwargs):
         feed = get_feed(1, app_id)
     except Exception as ex:
         logging.warning('Could not scrape appID {0}'.format(app_id))
-        return {'error': ex.message}
+        return {'error': ex.humanize()}
 
     num_pages = feed.find('.//{http://www.w3.org/2005/Atom}link[@rel="last"]')
     if num_pages is not None and 'href' in num_pages.attrib:
