@@ -153,7 +153,7 @@ def kill_celery():
 @hosts(config.BEAT_HOST)
 def start_celery_beat():
     with cd('~/mve'):
-        run('source venv/bin/activate; nohup celery worker --autoscale=4,2 --pidfile={0} --logfile={1} -l INFO -E -B -A celerytasks >& /dev/null < /dev/null &'.format(config.CELERY_PIDFILE, config.CELERY_LOGFILE), pty=False)
+        run('source venv/bin/activate; nohup celery worker --pidfile={0} --logfile={1} -l INFO -E -B -A celerytasks >& /dev/null < /dev/null &'.format(config.CELERY_PIDFILE, config.CELERY_LOGFILE), pty=False)
 
 @hosts(config.FLOWER_HOST)
 def start_celery_flower():
@@ -163,7 +163,7 @@ def start_celery_flower():
 @hosts(config.WORKER_HOSTS)
 def start_celery_workers():
     with cd('~/mve'):
-        run('source venv/bin/activate; nohup celery worker --autoscale=4,2 --pidfile={0} --logfile={1} -l INFO -E -A celerytasks >& /dev/null < /dev/null &'.format(config.CELERY_PIDFILE, config.CELERY_LOGFILE), pty=False)
+        run('source venv/bin/activate; nohup celery worker --pidfile={0} --logfile={1} -l INFO -E -A celerytasks >& /dev/null < /dev/null &'.format(config.CELERY_PIDFILE, config.CELERY_LOGFILE), pty=False)
 
 def restart_celery():
     with settings(warn_only=True):

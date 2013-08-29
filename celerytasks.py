@@ -61,27 +61,27 @@ def scrape_review(app_id, *args, **kwargs):
 
     def get_feed(page_num, app_id, format='xml'):
         try:
-            logging.warning('Requesting {0}'.format(config.REVIEWS_URL.format(page_num, app_id, format)))
+            logging.warning('[{0}]  Requesting {1}'.format(current_task.request.id, config.REVIEWS_URL.format(page_num, app_id, format)))
             r = urllib2.urlopen(config.REVIEWS_URL.format(page_num, app_id, format))
         except urllib2.HTTPError as ex:
-            logging.warning('Status code was {0}. Retrying...'.format(ex.code))
+            logging.warning('[{0}]  Status code was {1}. Retrying...'.format(current_task.request.id, ex.code))
             raise scrape_review.retry(exc=ex)
         except urllib2.URLError as ex:
-            logging.warning('Unknown URLError: {0}. Retrying...'.format(ex.message))
+            logging.warning('[{0}]  Unknown URLError: {1}. Retrying...'.format(current_task.request.id, ex.message))
             raise scrape_review.retry(exc=ex)
 
         if format == 'xml':
             try:
                 return etree.parse(r)
             except Exception as ex:
-                logging.warning('Unknown XML parse error: {0}. Retrying...'.format(ex.message))
+                logging.warning('[{0}]  Unknown XML parse error: {1}. Retrying...'.format(current_task.request.id, ex.message))
                 raise scrape_review.retry(exc=ex)
         else:
             try:
                 f = json.loads(unicode(r.read(), 'utf-8'))
                 return f['feed']
             except Exception as ex:
-                logging.warning('Unknown JSON parse error: {0}. Retrying...'.format(ex.message))
+                logging.warning('[{0}]  Unknown JSON parse error: {1}. Retrying...'.format(current_task.request.id, ex.message))
                 raise scrape_review.retry(exc=ex)
 
     def extract_single_value(regex, data):
