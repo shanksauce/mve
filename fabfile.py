@@ -181,6 +181,7 @@ def restart_celery():
         logging.info(yellow('Restarting celery workers...'))
         execute(start_celery_workers)
 
+@parallel
 @hosts(config.X_HOSTS)
 def update_env():
     logging.info(yellow('Updating environment...'))

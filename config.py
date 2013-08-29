@@ -15,7 +15,6 @@ CELERY_LOGFILE = '/var/log/celery'
 FLOWER_PIDFILE = '/var/run/celery-flower.pid'
 FLOWER_LOGFILE = '/var/log/celery-flower'
 
-
 INIT_HOSTS = ['x0', 'bshank12']
 X_HOSTS = ['x{0}'.format(i) for i in xrange(0,6)]
 MONGOS_HOSTS = ['x{0}'.format(i) for i in xrange(3,6)]
