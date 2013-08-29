@@ -49,6 +49,11 @@ ERRORS = {
 }
 
 
+@task(name='remaining_app_ids')
+def remaining_app_ids():
+    return redis.scard(APP_IDS)
+
+
 @task(name='scrape_review', max_retries=3, default_retry_delay=10, rate_limit='{0}/s'.format(pool_size))
 def scrape_review(app_id, *args, **kwargs):
     global format
@@ -184,12 +189,14 @@ def scrape_review(app_id, *args, **kwargs):
 def push_scrape_tasks(subtask_results=None, rate_limit='30/m'):
     global pool_size
 
+    '''
     if subtask_results is not None:
         for x in subtask_results:
             if 'error_code' in x:
                 pprint('Subtask results {0}'.format(x))
                 if x['error_code'] == ERRORS['RETRY']:
                     return
+    '''
 
     to_scrape = []
     for i in xrange(0, pool_size):
@@ -238,9 +245,4 @@ def initialize():
 if socket.gethostname() in config.INIT_HOSTS:
     (initialize.s() | push_scrape_tasks.s())()
     
-
-@task(name='remaining_app_ids')
-def remaining_app_ids():
-    return redis.scard(APP_IDS)
-
 
