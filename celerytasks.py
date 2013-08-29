@@ -138,7 +138,7 @@ def scrape_review(app_id, *args, **kwargs):
         raise ex
     except urllib2.HTTPError as ex:
         logging.warning('[HTTPError]  Could not scrape appID {0}'.format(app_id))
-        raise ex
+        raise Exception('403')
     except Exception as ex:
         logging.warning('[Exception]  Could not scrape appID {0}'.format(app_id))
         raise ex
