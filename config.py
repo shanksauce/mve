@@ -2,7 +2,7 @@ import logging
 import logging.config
 from colorlog import ColoredFormatter
 
-REVIEWS_URL = 'http://itunes.apple.com/us/rss/customerreviews/page={0}/id={1}/sortby=mostrecent/xml'
+REVIEWS_URL = 'http://itunes.apple.com/us/rss/customerreviews/page={0}/id={1}/sortby=mostrecent/{2}'
 
 MONGO_DB = 'app'
 MONGO_CONNECTION_STRING = 'mongodb://x3/%s' % MONGO_DB
