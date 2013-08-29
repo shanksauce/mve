@@ -138,10 +138,10 @@ def scrape_review(app_id, *args, **kwargs):
         raise ex
     except urllib2.HTTPError as ex:
         logging.warning('[HTTPError]  Could not scrape appID {0}'.format(app_id))
-        raise Exception(json.dumps({'error': {'HTTPError': {'code': ex.code, 'reason': ex.reason}}, 'error_code': ERRORS['HTTP']}))
+        raise ex
     except Exception as ex:
         logging.warning('[Exception]  Could not scrape appID {0}'.format(app_id))
-        return {'error': repr(ex), 'error_code': ERRORS['UNKNOWN']}
+        raise ex
 
     if format == 'xml':
         num_pages = feed.find('.//{http://www.w3.org/2005/Atom}link[@rel="last"]')
