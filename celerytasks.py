@@ -1,5 +1,6 @@
 import re
 import os
+import gc
 import socket
 import config
 import pickle
@@ -31,6 +32,8 @@ redis = Redis(config.REDIS_HOSTNAME)
 
 ## Set pool bounds
 pool_size = 10
+
+gc.enable()
 
 @task(name='scrape_review')
 def scrape_review(app_id, *args, **kwargs):
