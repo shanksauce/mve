@@ -46,7 +46,10 @@ def scrape_review(app_id, *args, **kwargs):
             if r.content is None:
                 raise Exception('No response text: {0}'.format(r.content))
             else:
-                return etree.fromstring(r.content)
+                try:
+                    return etree.fromstring(r.content)
+                except Exception as ex:
+                    raise ex
 
     def extract_single_value(regex, data):
         match = re.match(regex, data)
