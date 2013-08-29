@@ -239,5 +239,8 @@ if socket.gethostname() in config.INIT_HOSTS:
     (initialize.s() | push_scrape_tasks.s())()
     
 
+@task(name='remaining_app_ids')
+def remaining_app_ids():
+    return redis.scard(APP_IDS)
 
 

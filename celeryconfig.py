@@ -18,5 +18,10 @@ CELERYBEAT_SCHEDULE = {
 	'push_scrape_tasks': {
 		'task': 'push_scrape_tasks',
 		'schedule': crontab(minute='*/30')
+	},
+
+	'remaining_app_ids': {
+		'task': 'remaining_app_ids',
+		'schedule': crontab(minute='*/1')
 	}
 }
