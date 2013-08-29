@@ -135,7 +135,7 @@ def scrape_review(app_id, *args, **kwargs):
         return {'error': ex.humanize(), 'error_code': ERRORS['RETRY']}
     except urllib2.HTTPError as ex:
         logging.warning('[HTTPError]  Could not scrape appID {0}'.format(app_id))
-        return {'error': {'HTTPError': {'code': e.code, 'reason': e.reason}}, 'error_code': ERRORS['HTTP']}
+        return {'error': {'HTTPError': {'code': ex.code, 'reason': ex.reason}}, 'error_code': ERRORS['HTTP']}
     except Exception as ex:
         logging.warning('[Exception]  Could not scrape appID {0}'.format(app_id))
         return {'error': repr(ex), 'error_code': ERRORS['UNKNOWN']}
