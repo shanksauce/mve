@@ -7,7 +7,7 @@ import logging
 import fabric.state
 from fabric.colors import green, blue, red, yellow, cyan, magenta
 from fabric.api import settings, hide, run, local, cd, lcd, get, env, execute, task
-from fabric.decorators import hosts
+from fabric.decorators import hosts, parallel
 
 config.configure_logging()
 
