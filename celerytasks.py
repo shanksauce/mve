@@ -34,7 +34,7 @@ TOTAL_APP_IDS = '__total_app_ids'
 redis = Redis(config.REDIS_HOSTNAME)
 
 ## Set pool bounds
-pool_size = 10
+pool_size = 50
 format = 'xml'
 
 ## Garbage collector
@@ -181,7 +181,7 @@ def scrape_review(app_id, *args, **kwargs):
     return 'OK'
 
 @task(name='push_scrape_tasks')
-def push_scrape_tasks(subtask_results=None, rate_limit='1/m'):
+def push_scrape_tasks(subtask_results=None, rate_limit='30/m'):
     global pool_size
 
     if subtask_results is not None:
