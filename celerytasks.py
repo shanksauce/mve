@@ -62,8 +62,6 @@ def scrape_review(app_id, *args, **kwargs):
     else:
         format = 'xml'
 
-    logging.warning('Using {0} format'.format(format))
-
     def get_feed(page_num, app_id, format='xml'):
         try:
             logging.warning('[{0}]  Requesting {1}'.format(current_task.request.id, config.REVIEWS_URL.format(page_num, app_id, format)))
@@ -137,7 +135,7 @@ def scrape_review(app_id, *args, **kwargs):
         feed = get_feed(1, app_id, format)
     except RetryTaskError as ex:
         logging.warning('[RetryTaskError]  Could not scrape appID {0}'.format(app_id))
-        return {'error': ex.humanize(), 'error_code': ERRORS['RETRY']}
+        raise ex
     except urllib2.HTTPError as ex:
         logging.warning('[HTTPError]  Could not scrape appID {0}'.format(app_id))
         return {'error': {'HTTPError': {'code': ex.code, 'reason': ex.reason}}, 'error_code': ERRORS['HTTP']}
