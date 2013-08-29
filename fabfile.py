@@ -141,60 +141,45 @@ def rm_scrape_urls():
 
 @hosts(config.X_HOSTS)
 def kill_celery():
-    PIDFILE = '/var/run/celery.pid'
-    LOGFILE = '/var/log/celery'
     with settings(warn_only=True):
-        if fabric.contrib.files.exists(PIDFILE):
-            run('kill -s 2 $(cat {0}) && rm {0}'.format(PIDFILE), pty=False)
+        pids_exist = fabric.contrib.files.exists(config.CELERY_PIDFILE) and fabric.contrib.files.exists(config.FLOWER_PIDFILE)
+        if not pids_exist:
             run('killall celery', pty=False)
-            run('truncate -s 0 {0}'.format(LOGFILE))
+        else:
+            run('kill -s 2 $(cat {0}) && rm {0}'.format(config.CELERY_PIDFILE), pty=False)
+            run('kill -s 2 $(cat {0}) && rm {0}'.format(config.FLOWER_PIDFILE), pty=False)
+        run('truncate -s 0 {0}; truncate -s 0 {1}'.format(config.CELERY_LOGFILE, config.FLOWER_LOGFILE), pty=False)
+
+@hosts(config.BEAT_HOST)
+def start_celery_beat():
+    with cd('~/mve'):
+        run('source venv/bin/activate; nohup celery worker --autoscale=4,2 --pidfile={0} --logfile={1} -l INFO -E -B -A celerytasks >& /dev/null < /dev/null &'.format(config.CELERY_PIDFILE, config.CELERY_LOGFILE), pty=False)
+
+@hosts(config.FLOWER_HOST)
+def start_celery_flower():
+    with cd('~/mve'):
+        run('source venv/bin/activate; nohup celery flower --pidfile={0} --logfile={1} >& /dev/null < /dev/null &'.format(config.CELERY_PIDFILE, config.CELERY_LOGFILE), pty=False)
+
+@hosts(config.WORKER_HOSTS)
+def start_celery_workers():
+    with cd('~/mve'):
+        run('source venv/bin/activate; nohup celery worker --autoscale=4,2 --pidfile={0} --logfile={1} -l INFO -E -A celerytasks >& /dev/null < /dev/null &'.format(config.CELERY_PIDFILE, config.CELERY_LOGFILE), pty=False)
 
 def restart_celery():
     with settings(warn_only=True):
-        @hosts(config.WORKER_HOSTS)
-        def restart_celery_workers():
-            PIDFILE = '/var/run/celery.pid'
-            LOGFILE = '/var/log/celery'
-            if fabric.contrib.files.exists(PIDFILE):
-                run('kill -s 2 $(cat {0}) && rm {0}'.format(PIDFILE), pty=False)
-                run('killall celery', pty=False)
-                run('truncate -s 0 {0}'.format(LOGFILE))
-            time.sleep(10)
-            with cd('~/mve'):
-                run('source venv/bin/activate; nohup celery worker --autoscale=8,2 --pidfile={0} --logfile={1} -l INFO -E -A celerytasks >& /dev/null < /dev/null &'.format(PIDFILE, LOGFILE), pty=False)
+        logging.info(yellow('Killing all celery processes...'))
+        execute(kill_celery)
 
-        @hosts(config.BEAT_HOST)
-        def restart_celery_beat():
-            PIDFILE = '/var/run/celery.pid'
-            LOGFILE = '/var/log/celery'
-            if fabric.contrib.files.exists(PIDFILE):
-                run('kill -s 2 $(cat {0}) && rm {0}'.format(PIDFILE))
-                run('killall celery', pty=False)                
-                run('truncate -s 0 {0}'.format(LOGFILE))
-            time.sleep(10)
-            with cd('~/mve'):
-                run('source venv/bin/activate; nohup celery worker --autoscale=8,2 --pidfile={0} --logfile={1} -l INFO -E -B -A celerytasks >& /dev/null < /dev/null &'.format(PIDFILE, LOGFILE), pty=False)
-
-        @hosts(config.FLOWER_HOST)
-        def restart_celery_flower():
-            PIDFILE = '/var/run/celery-flower.pid'
-            LOGFILE = '/var/log/celery-flower'
-            if fabric.contrib.files.exists(PIDFILE):
-                run('kill -s 2 $(cat {0}) && rm {0}'.format(PIDFILE), pty=False)
-                run('killall celery', pty=False)                
-                run('truncate -s 0 {0}'.format(LOGFILE))
-            time.sleep(10)
-            with cd('~/mve'):
-                run('source venv/bin/activate; nohup celery flower --pidfile={0} --logfile={1} >& /dev/null < /dev/null &'.format(PIDFILE, LOGFILE), pty=False)
+        time.sleep(10)
 
         logging.info(yellow('Restarting celery flower...'))
-        execute(restart_celery_flower)
+        execute(start_celery_flower)
 
         logging.info(yellow('Restarting celery beat...'))
-        execute(restart_celery_beat)
+        execute(start_celery_beat)
 
         logging.info(yellow('Restarting celery workers...'))
-        execute(restart_celery_workers)
+        execute(start_celery_workers)
 
 @hosts(config.X_HOSTS)
 def update_env():
