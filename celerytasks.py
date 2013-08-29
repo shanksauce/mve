@@ -93,9 +93,13 @@ def scrape_review(app_id, *args, **kwargs):
     if num_pages > 1:
         for i in xrange(2, num_pages+1):
             logging.info('Extracting reviews from page {0}'.format(i))
-            feed = get_feed(i, app_id)
-            if feed is not None:
-                reviews.extend(extract_review(feed))
+            try:
+                feed = get_feed(i, app_id)
+                if feed is not None:
+                    reviews.extend(extract_review(feed))
+            except Exception as ex:
+                logging.warning('Could not scrape appID {0}'.format(app_id))
+                return {'error': ex.message}
 
     doc = db['app_data'].find_one({'app_id': app_id})
     if doc is None:
@@ -116,12 +120,12 @@ def push_scrape_tasks(task_id=None):
         s_app_id = redis.spop(APP_IDS)
         if s_app_id is not None:
             to_scrape.append(int(s_app_id))
-    l = float(redis.scard(APP_IDS))
-    logging.info('------------> Progress: {0}/{1}  {2:.2f}%'.format(l, redis.srandmember(TOTAL_APP_IDS), 100.0*(l/float(redis.srandmember(TOTAL_APP_IDS)))))
+    l = redis.scard(APP_IDS)
+    logging.info('------------> Progress: {0}/{1}  {2:.2f}%'.format(l, redis.srandmember(TOTAL_APP_IDS), 100.0 - 100.0*(float(l)/float(redis.srandmember(TOTAL_APP_IDS)))))
     if len(to_scrape) == 0:
         logging.info('Done')
     else:
-        g = chord(scrape_review.s(app_id) for app_id in to_scrape)(push_scrape_tasks.s())
+        chord(scrape_review.s(app_id) for app_id in to_scrape)(push_scrape_tasks.s())
 
 @task(name='initialize')
 def initialize():
@@ -154,8 +158,6 @@ def initialize():
         redis.sadd(APP_IDS, *app_ids)
     redis.sadd(TOTAL_APP_IDS, redis.scard(APP_IDS))
     logging.info('There are {0} appIDs in Redis'.format(redis.srandmember(TOTAL_APP_IDS)))
-
-logging.info('I am {0}'.format(socket.gethostname()))
 
 if socket.gethostname() in config.INIT_HOSTS:
     (initialize.s() | push_scrape_tasks.s())()
