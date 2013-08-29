@@ -161,7 +161,7 @@ def restart_celery():
                 run('truncate -s 0 {0}'.format(LOGFILE))
             time.sleep(10)
             with cd('~/mve'):
-                run('source venv/bin/activate; nohup celery worker --pidfile={0} --logfile={1} -l INFO -E -A celerytasks >& /dev/null < /dev/null &'.format(PIDFILE, LOGFILE), pty=False)
+                run('source venv/bin/activate; nohup celery worker --autoscale=8,2 --pidfile={0} --logfile={1} -l INFO -E -A celerytasks >& /dev/null < /dev/null &'.format(PIDFILE, LOGFILE), pty=False)
 
         @hosts(config.BEAT_HOST)
         def restart_celery_beat():
@@ -173,7 +173,7 @@ def restart_celery():
                 run('truncate -s 0 {0}'.format(LOGFILE))
             time.sleep(10)
             with cd('~/mve'):
-                run('source venv/bin/activate; nohup celery worker --pidfile={0} --logfile={1} -l INFO -E -B -A celerytasks >& /dev/null < /dev/null &'.format(PIDFILE, LOGFILE), pty=False)
+                run('source venv/bin/activate; nohup celery worker --autoscale=8,2 --pidfile={0} --logfile={1} -l INFO -E -B -A celerytasks >& /dev/null < /dev/null &'.format(PIDFILE, LOGFILE), pty=False)
 
         @hosts(config.FLOWER_HOST)
         def restart_celery_flower():
