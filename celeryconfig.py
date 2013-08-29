@@ -17,7 +17,7 @@ CELERY_RESULT_BACKEND = BROKER_URL
 CELERYBEAT_SCHEDULE = {
 	'push_scrape_tasks': {
 		'task': 'push_scrape_tasks',
-		'schedule': crontab(minute='*/30')
+		'schedule': crontab(minute='*/5')
 	},
 
 	'remaining_app_ids': {
