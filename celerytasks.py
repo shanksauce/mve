@@ -183,8 +183,8 @@ def scrape_review(app_id, *args, **kwargs):
         logging.info('Saved {0}'.format(_id))
     return 'OK'
 
-@task(name='push_scrape_tasks')
-def push_scrape_tasks(subtask_results=None, rate_limit='60/m'):
+@task(name='push_scrape_tasks', rate_limit='60/m')
+def push_scrape_tasks(subtask_results=None):
     global pool_size
 
     '''
