@@ -34,7 +34,7 @@ TOTAL_APP_IDS = '__total_app_ids'
 redis = Redis(config.REDIS_HOSTNAME)
 
 ## Set pool bounds
-pool_size = 50
+pool_size = 25
 format = 'xml'
 
 ## Garbage collector
@@ -54,7 +54,7 @@ def remaining_app_ids():
     return redis.scard(APP_IDS)
 
 
-@task(name='scrape_review', max_retries=3, default_retry_delay=10, rate_limit='{0}/s'.format(pool_size))
+@task(name='scrape_review', max_retries=3, default_retry_delay=5, rate_limit='{0}/s'.format(pool_size))
 def scrape_review(app_id, *args, **kwargs):
     global format
     if format == 'xml':
@@ -170,7 +170,7 @@ def scrape_review(app_id, *args, **kwargs):
                     reviews.extend(extract_review(feed, format))
             except Exception as ex:
                 logging.warning('Could not scrape appID {0}'.format(app_id))
-                return {'error': ex.message, 'error_code': ERRORS['FEED']}
+                return {'error': repr(ex), 'error_code': ERRORS['FEED']}
 
     doc = db['app_data'].find_one({'app_id': app_id})
     if doc is None:
@@ -184,7 +184,7 @@ def scrape_review(app_id, *args, **kwargs):
     return 'OK'
 
 @task(name='push_scrape_tasks')
-def push_scrape_tasks(subtask_results=None, rate_limit='30/m'):
+def push_scrape_tasks(subtask_results=None, rate_limit='60/m'):
     global pool_size
 
     '''

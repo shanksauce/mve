@@ -160,6 +160,7 @@ def start_celery_beat():
 def start_celery_flower():
     with cd('~/mve'):
         run('source venv/bin/activate; nohup celery flower --pidfile={0} --logfile={1} >& /dev/null < /dev/null &'.format(config.CELERY_PIDFILE, config.CELERY_LOGFILE), pty=False)
+        run('celerymon --detach', pty=False)
 
 @parallel
 @hosts(config.WORKER_HOSTS)
