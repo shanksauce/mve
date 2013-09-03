@@ -1,3 +1,3 @@
 #!/bin/sh
 
-mongo x3/app $1
+mongo localhost/app $1

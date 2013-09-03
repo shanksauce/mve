@@ -1,11 +1,10 @@
 function performMVE
     clc; close all; clear all;
 
-    homeDir = 'D:\Junk\School\Columbia\COMS4772\';
+    homeDir = '\\ben\home\usr\src\mve\matlab\code\';
     
     path([homeDir,'mve'],path);
     path([homeDir,'netlab'],path);
-    path([homeDir,'Spectral Clustering\SPECTRAL0p1'],path);
     path([homeDir,'csdp6.1.0winp4\bin'],path);
     path([homeDir,'csdp6.1.0winp4\matlab'],path);
     path([homeDir,'yalmip'],path);
@@ -39,7 +38,7 @@ function performMVE
 
     kernelsUsed = [6];
 
-    for j=[2] % Which data sets?
+    for j=[7] % Which data sets?
         for kernelType = kernelsUsed
             targetd = 2;
             tol = 0.99;

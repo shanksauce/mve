@@ -1,13 +1,25 @@
-var result = db.app_data.aggregate(
-  {$project: {app_id:1, "reviews.author_name":1, "reviews.author_id":1}}, 
-  {$match: {reviews:{$exists:1}}}, 
-  {$unwind: "$reviews"},
-  {$group: {
-  	_id: {author_id: "$reviews.author_id", author_name: "$reviews.author_name"},
-  	app_ids: {$push: "$app_id"},
-  	total: {$sum:1}
-  }},
-  {$sort: {total:-1}}
-);
+var map = function() {
+    var id = this._id;
+    if(this.value.reviews) {
+        this.value.reviews.forEach(function(r) {
+            var k = id + ',' + r.author;
+            emit(k, r.rating);
+        });
+    }
+};
+
+var reduce = function(k,v) {
+    return {'r': v};
+};
+
+var result = db.ratings_by_user_id.mapReduce(map, reduce, {
+    out: {replace: "cleaned_up_ratings"},
+    query: {"value.reviews":{$exists:1}},
+    sort: {_id: 1},
+    limit: 100
+});
 
 printjson(result);
+
+
+
